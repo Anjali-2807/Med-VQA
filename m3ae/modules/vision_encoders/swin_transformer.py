@@ -18,30 +18,10 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-
-# Compatibility shim: overlay_external_default_cfg was removed in timm >= 0.6.x
-try:
-    from timm.models.helpers import overlay_external_default_cfg
-except ImportError:
-    def overlay_external_default_cfg(ext_layer_cfg, cfg):
-        if ext_layer_cfg:
-            for key, val in ext_layer_cfg.items():
-                cfg.set_key(key, val)
-
-try:
-    from timm.models.layers import PatchEmbed, Mlp, DropPath, to_2tuple, trunc_normal_
-except ImportError:
-    from timm.layers import PatchEmbed, Mlp, DropPath, to_2tuple, trunc_normal_
-
+from timm.models.helpers import overlay_external_default_cfg
+from timm.models.layers import PatchEmbed, Mlp, DropPath, to_2tuple, trunc_normal_
 from timm.models.registry import register_model
-
-try:
-    from timm.models.vision_transformer import checkpoint_filter_fn, _init_vit_weights
-except ImportError:
-    def _init_vit_weights(module, name='', head_bias=0., jax_impl=False):
-        pass
-    def checkpoint_filter_fn(state_dict, model):
-        return state_dict
+from timm.models.vision_transformer import checkpoint_filter_fn, _init_vit_weights
 
 from .swin_helpers import swin_build_model_with_cfg
 
