@@ -21,7 +21,7 @@ resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
 
 @ex.automain
 def main(_config):
-    _config = copy.deepcopy(_config)  # 创建_config的深拷贝，以避免在后续操作中对原数据的修改
+    _config = dict(_config)  # Create a clean dict copy without deepcopy pickling issues
     pl.seed_everything(_config["seed"])
 
     # Data modules
