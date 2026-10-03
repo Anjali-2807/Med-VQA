@@ -84,8 +84,9 @@ def main(_config):
     # print(_config)
     gpu_ids = (_config['gpu_ids'])
     grad_steps = max(_config["batch_size"] // (_config["per_gpu_batchsize"] * num_gpus * _config["num_nodes"]), 1)
-    max_steps = _config["max_steps"] if _config["max_steps"] is not None else None
-    max_epochs = _config["max_epoch"] if max_steps is None else 1000
+    # PL 1.9 requires -1 (not None) to mean "no max_steps limit"
+    max_steps = _config["max_steps"] if _config["max_steps"] is not None else -1
+    max_epochs = _config["max_epoch"] if max_steps == -1 else 1000
 
     # Trainer
     import torch
@@ -99,13 +100,11 @@ def main(_config):
         "devices": devices,
         "num_nodes": _config["num_nodes"],
         "precision": _config["precision"],
-        "benchmark": True,
         "deterministic": True,
         "max_epochs": max_epochs,
         "max_steps": max_steps,
         "callbacks": callbacks,
         "logger": loggers,
-        "replace_sampler_ddp": False,
         "accumulate_grad_batches": grad_steps,
         "log_every_n_steps": 10,
         "fast_dev_run": _config["fast_dev_run"],
