@@ -75,6 +75,8 @@ def download_and_preprocess_vqa_rad(save_dir="data/finetune_arrows"):
     print(f"  --> Val samples:   {len(data['val'])}")
     print(f"  --> Test samples:  {len(data['test'])}")
 
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "prepro"))
     from prepro.make_arrow import make_arrow_vqa
     make_arrow_vqa(data, "vqa_vqa_rad", save_dir)
     print(f"🎉 Full VQA-RAD dataset preprocessed & saved to {save_dir}!")

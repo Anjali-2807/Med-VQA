@@ -3,7 +3,10 @@ from collections import Counter, defaultdict
 
 import pandas as pd
 import pyarrow as pa
-from glossary import normalize_word
+try:
+    from glossary import normalize_word
+except ImportError:
+    from prepro.glossary import normalize_word
 from tqdm import tqdm
 
 
