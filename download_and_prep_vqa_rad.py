@@ -77,6 +77,7 @@ def download_and_preprocess_vqa_rad(save_dir="data/finetune_arrows"):
 
     import sys
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "prepro"))
+    from prepro.make_arrow import make_arrow_vqa
     from create_sample_data import generate_external_graph_feats
     generate_external_graph_feats()
     
