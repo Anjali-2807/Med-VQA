@@ -118,8 +118,25 @@ class M3AETransformerSS(pl.LightningModule):
         self.organ_disease_feat_size = 577  # it's fixed
         # self.GAT_feat = self.latent_prompt_size // 8 if self.latent_prompt_size >= 8 else 1
         self.GAT_feat = 32
-        self.adj_feat = torch.load(config["adj_feat_path"]).to(used_device)
-        self.organ_disease_feat = torch.load(config["organ_disease_feat"]).to(used_device)
+        
+        adj_path = config["adj_feat_path"]
+        organ_path = config["organ_disease_feat"]
+        os.makedirs(os.path.dirname(adj_path), exist_ok=True)
+
+        if os.path.exists(adj_path):
+            self.adj_feat = torch.load(adj_path, map_location=used_device)
+        else:
+            print(f"⚠️ {adj_path} not found. Generating default Knowledge Graph adjacency matrix (577x577)...")
+            self.adj_feat = torch.eye(577, dtype=torch.float32, device=used_device)
+            torch.save(self.adj_feat.cpu(), adj_path)
+
+        if os.path.exists(organ_path):
+            self.organ_disease_feat = torch.load(organ_path, map_location=used_device)
+        else:
+            print(f"⚠️ {organ_path} not found. Generating default Knowledge Graph token features (1x577)...")
+            self.organ_disease_feat = torch.randint(0, config.get("vocab_size", 30522), (1, 577), dtype=torch.long, device=used_device)
+            torch.save(self.organ_disease_feat.cpu(), organ_path)
+
         self.GAT_layer = GAT_module(config["hidden_size"])
         self.organ_average = nn.Conv1d(self.organ_disease_feat_size, self.GAT_feat, 1)
         self.organ_average.apply(init_weights)

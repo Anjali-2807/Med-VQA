@@ -54,5 +54,23 @@ def generate_sample_arrows(save_dir="data/finetune_arrows"):
                 writer.write_table(table)
         print(f"  --> Created {arrow_path} ({num_samples} samples)")
 
+def generate_external_graph_feats(ext_dir="data/external_data"):
+    try:
+        import torch
+        os.makedirs(ext_dir, exist_ok=True)
+        adj_path = os.path.join(ext_dir, "adj_matrix.pt")
+        organ_path = os.path.join(ext_dir, "organ_disease_info.pt")
+        
+        if not os.path.exists(adj_path):
+            torch.save(torch.eye(577, dtype=torch.float32), adj_path)
+            print(f"✅ Pre-generated Knowledge Graph adjacency tensor: {adj_path}")
+            
+        if not os.path.exists(organ_path):
+            torch.save(torch.randint(0, 30522, (1, 577), dtype=torch.long), organ_path)
+            print(f"✅ Pre-generated Knowledge Graph token tensor: {organ_path}")
+    except Exception as e:
+        print(f"⚠️ Could not generate graph features: {e}")
+
 if __name__ == "__main__":
+    generate_external_graph_feats()
     generate_sample_arrows()
