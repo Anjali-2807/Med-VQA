@@ -33,7 +33,7 @@ class M3AETransformerSS(pl.LightningModule):
             k: v for k, v in config.items()
             if isinstance(v, (int, float, str, bool, list, dict, tuple, set, type(None)))
         }
-        self.save_hyperparameters(clean_config)
+        self.save_hyperparameters({"config": clean_config})
         self.config = config
 
         # == Begin: 1. Build Models ==
