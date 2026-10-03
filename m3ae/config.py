@@ -49,8 +49,8 @@ def config():
     mlm_prob = 0.15
     draw_false_text = 0
 
-    # Answer Generation Setting
-    T5_model = "downloaded/t5-base"
+    import os
+    T5_model = "downloaded/t5-base" if (os.path.exists("downloaded/t5-base") or os.path.exists("/content/Med-VQA/downloaded/t5-base")) else "t5-base"
 
     # Transformer Setting
     num_top_layer = 6
