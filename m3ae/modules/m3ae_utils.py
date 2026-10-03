@@ -265,7 +265,7 @@ def set_schedule(pl_module):
     else:
         raise ValueError
 
-    if pl_module.trainer.max_steps is None:
+    if pl_module.trainer.max_steps is None or pl_module.trainer.max_steps == -1:
         max_steps = (
                 len(pl_module.trainer.datamodule.train_dataloader())
                 * pl_module.trainer.max_epochs

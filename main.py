@@ -33,7 +33,11 @@ def main(_config):
     pl.seed_everything(_config["seed"])
 
     # Data modules
-    dm = MTDataModule(_config, dist=True)
+    # Only use distributed sampler when actually running multi-GPU DDP
+    _use_dist = _config["num_nodes"] * (
+        _config["num_gpus"] if isinstance(_config["num_gpus"], int) else len(_config["num_gpus"])
+    ) > 1
+    dm = MTDataModule(_config, dist=_use_dist)
 
     # retrieval
     # 创建检索数据集

@@ -58,7 +58,7 @@ class BaseDataset(torch.utils.data.Dataset):
             self.table_names = list()  # 创建一个空列表用于存储表名
             for i, name in enumerate(names):
                 self.table_names += [name] * len(tables[i])
-            self.table = pa.concat_tables(tables, promote=True)  # 将所有读取的表合并成一个单一的表 self.table
+            self.table = pa.concat_tables(tables, promote_options="default")  # 将所有读取的表合并成一个单一的表 self.table
             if text_column_name != "":
                 self.text_column_name = text_column_name
                 self.all_texts = self.table[text_column_name].to_pandas().tolist()

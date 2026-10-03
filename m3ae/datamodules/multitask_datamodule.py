@@ -39,7 +39,8 @@ class MTDataModule(LightningDataModule):
         self.tokenizer = self.dms[0].tokenizer
         self.collate = functools.partial(self.dms[0].train_dataset.collate, mlm_collator=self.dms[0].mlm_collator)
 
-        if self.dist:
+        import torch.distributed as tdist
+        if self.dist and tdist.is_available() and tdist.is_initialized():
             self.train_sampler = DistributedSampler(self.train_dataset, shuffle=True)
             self.val_sampler = DistributedSampler(self.val_dataset, shuffle=True)
             self.test_sampler = DistributedSampler(self.test_dataset, shuffle=False)
