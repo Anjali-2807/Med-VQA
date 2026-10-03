@@ -21,7 +21,10 @@ resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
 
 @ex.automain
 def main(_config):
-    _config = dict(_config)  # Create a clean dict copy without deepcopy pickling issues
+    _config = {
+        k: v for k, v in _config.items()
+        if isinstance(v, (int, float, str, bool, list, dict, tuple, set, type(None)))
+    }
     pl.seed_everything(_config["seed"])
 
     # Data modules

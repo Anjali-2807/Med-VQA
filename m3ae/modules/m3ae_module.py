@@ -28,7 +28,11 @@ from m3ae.modules.mambapy.mamba import Mamba, MambaConfig
 class M3AETransformerSS(pl.LightningModule):
     def __init__(self, config):
         super().__init__()
-        self.save_hyperparameters()  # 保存超参数
+        clean_config = {
+            k: v for k, v in config.items()
+            if isinstance(v, (int, float, str, bool, list, dict, tuple, set, type(None)))
+        }
+        self.save_hyperparameters(clean_config)
         self.config = config
 
         # == Begin: 1. Build Models ==
