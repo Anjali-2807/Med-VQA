@@ -88,34 +88,44 @@ def main(_config):
     max_epochs = _config["max_epoch"] if max_steps is None else 1000
 
     # Trainer
-    trainer = pl.Trainer(
-        gpus=[gpu_ids],
-        # gpus=num_gpus,
-        num_nodes=_config["num_nodes"],
-        precision=_config["precision"],
-        accelerator="ddp",
-        benchmark=True,
-        deterministic=True,
-        max_epochs=max_epochs,
-        max_steps=max_steps,
-        callbacks=callbacks,
-        logger=loggers,
-        prepare_data_per_node=False,
-        replace_sampler_ddp=False,
-        accumulate_grad_batches=grad_steps,
-        log_every_n_steps=10,
-        flush_logs_every_n_steps=10,
-        resume_from_checkpoint=_config["resume_from"],
-        weights_summary="top",
-        fast_dev_run=_config["fast_dev_run"],
-        val_check_interval=_config["val_check_interval"],
-        default_root_dir=_config["default_root_dir"]
-    )  # 初始化训练器
+    import torch
+    use_gpu = torch.cuda.is_available() and num_gpus > 0
+    accelerator = "gpu" if use_gpu else "cpu"
+    devices = [gpu_ids] if (use_gpu and isinstance(gpu_ids, int)) else (gpu_ids if use_gpu else "auto")
+    strategy = "ddp" if (use_gpu and num_gpus > 1) else None
+
+    trainer_kwargs = {
+        "accelerator": accelerator,
+        "devices": devices,
+        "num_nodes": _config["num_nodes"],
+        "precision": _config["precision"],
+        "benchmark": True,
+        "deterministic": True,
+        "max_epochs": max_epochs,
+        "max_steps": max_steps,
+        "callbacks": callbacks,
+        "logger": loggers,
+        "replace_sampler_ddp": False,
+        "accumulate_grad_batches": grad_steps,
+        "log_every_n_steps": 10,
+        "fast_dev_run": _config["fast_dev_run"],
+        "val_check_interval": _config["val_check_interval"],
+        "default_root_dir": _config["default_root_dir"],
+    }
+    if strategy:
+        trainer_kwargs["strategy"] = strategy
+
+    trainer = pl.Trainer(**trainer_kwargs)
+
+    resume_from = _config.get("resume_from", None)
+    if resume_from == "":
+        resume_from = None
 
     if not _config["test_only"]:
-        trainer.fit(model, datamodule=dm)
+        trainer.fit(model, datamodule=dm, ckpt_path=resume_from)
         if "finetune" in exp_name:
             trainer.test(ckpt_path="best", datamodule=dm)
     else:
-        trainer.test(model, datamodule=dm)
+        trainer.test(model, datamodule=dm, ckpt_path=resume_from)
         # get_cam(model)
+
