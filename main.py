@@ -1,5 +1,10 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+import numpy as np
+if not hasattr(np, "Inf"): np.Inf = np.inf
+if not hasattr(np, "NaN"): np.NaN = np.nan
+if not hasattr(np, "float"): np.float = float
+if not hasattr(np, "int"): np.int = int
+if not hasattr(np, "bool"): np.bool = bool
 
 import copy
 import os
