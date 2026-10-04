@@ -13,8 +13,8 @@
 Medical Visual Question Answering (Med-VQA) assists clinical decision-making by enabling intelligent systems to answer complex natural language queries about medical images (Radiology, CT, MRI, X-ray). 
 
 Standard Med-VQA models struggle with domain-specific reasoning and fine-grained anatomical localization. This project upgrades the **KG-CMI** architecture with:
-1. **Relational Graph Convolutional Network (R-GCN)** for multi-hop organ-disease knowledge graph reasoning.
-2. **Cross-Modal Mamba (CMM)** selective scanning for linear complexity vision-language interaction.
+1. **2-Layer Relational Graph Convolutional Network (`QuestionGuidedRGCN`)** with 8 directed relation types for multi-hop reasoning over a manually curated medical relational knowledge graph.
+2. **Question-Guided Graph-Text Attention** and **Cross-Modal Mamba (CMM)** selective scanning for linear-complexity fusion.
 3. **Free-Form Answer Enhanced Multi-Task Learning (FAMT)** to improve open-ended clinical query response generation.
 
 ---
