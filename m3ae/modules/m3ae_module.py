@@ -22,6 +22,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 from m3ae.modules import objectives, m3ae_utils
 from m3ae.modules import prediction_heads
 from m3ae.modules.language_encoders.bert_model import BertCrossLayer, GAT_module
+from models.rgcn_kge_module import RGCNKGEModule
 from m3ae.modules.m3ae_utils import init_weights
 from m3ae.modules.vision_encoders import swin_transformer as swin
 from m3ae.modules.vision_encoders.clip_model import build_model, adapt_position_encoding
@@ -144,7 +145,25 @@ class M3AETransformerSS(pl.LightningModule):
             self.organ_disease_feat = torch.randint(0, config.get("vocab_size", 30522), (1, 577), dtype=torch.long, device=used_device)
             torch.save(self.organ_disease_feat.cpu(), organ_path)
 
-        self.GAT_layer = GAT_module(config["hidden_size"])
+        edge_index_path = os.path.join(os.path.dirname(adj_path), "edge_index.pt")
+        edge_type_path = os.path.join(os.path.dirname(adj_path), "edge_type.pt")
+
+        if os.path.exists(edge_index_path) and os.path.exists(edge_type_path):
+            self.edge_index = torch.load(edge_index_path, map_location=used_device)
+            self.edge_type = torch.load(edge_type_path, map_location=used_device)
+        else:
+            try:
+                from create_sample_data import generate_external_graph_feats
+                generate_external_graph_feats(os.path.dirname(adj_path))
+                self.edge_index = torch.load(edge_index_path, map_location=used_device)
+                self.edge_type = torch.load(edge_type_path, map_location=used_device)
+            except Exception:
+                num_nodes = 577
+                self.edge_index = torch.stack([torch.arange(num_nodes), torch.arange(num_nodes)]).to(used_device)
+                self.edge_type = torch.full((num_nodes,), 4, dtype=torch.long, device=used_device)
+
+        # 2-Layer R-GCN + Question-guided Cross Attention
+        self.GAT_layer = RGCNKGEModule(d_model=config["hidden_size"], num_relations=5, num_bases=4)
         self.organ_average = nn.Conv1d(self.organ_disease_feat_size, self.GAT_feat, 1)
         self.organ_average.apply(init_weights)
         # == End  : External Graph ==
@@ -457,15 +476,20 @@ class M3AETransformerSS(pl.LightningModule):
         x, y = uni_modal_text_feats, uni_modal_image_feats
         # == End  : Multi-Modal Fusion ==
 
-        # == Begin: External Graph ==
-        adj_feat = self.adj_feat.unsqueeze(0).expand(x.size(0), self.adj_feat.size(0),
-                                                     self.adj_feat.size(1))  # 将adj_feat扩展到batch_size维度,[B,577,577]
-        organ_disease_feat = self.organ_disease_feat.expand(x.size(0), self.organ_disease_feat.size(
-            1))  # 将organ_disease_feat扩展到batch_size维度,[B,577]
-        organ_disease_feat = self.language_encoder.embeddings.word_embeddings(
-            organ_disease_feat)  # 将organ_disease_feat转换为embedding,[B,577,768]
-        GAT_feat = self.GAT_layer(x, organ_disease_feat, adj_feat)  # LP和organ作为节点特征，adj作为邻接矩阵输入到图注意力网络层
-        GAT_feat = self.organ_average(GAT_feat)  # 对GAT进行平均池化,[B,4,768]
+        # == Begin: External Graph (2-Layer R-GCN + Question-guided Cross Attention) ==
+        organ_disease_tokens = self.organ_disease_feat.squeeze(0)
+        if organ_disease_tokens.dim() > 1:
+            organ_disease_tokens = organ_disease_tokens[0]
+        node_embeds = self.language_encoder.embeddings.word_embeddings(organ_disease_tokens.to(x.device)) # [577, 768]
+
+        # Pass node_embeds [577, 768], edge_index, edge_type, and question text embeddings x into R-GCN
+        RGCN_feat = self.GAT_layer(
+            node_embeds,
+            self.edge_index.to(x.device),
+            self.edge_type.to(x.device),
+            x
+        ) # [B, 577, 768]
+        GAT_feat = self.organ_average(RGCN_feat) # [B, 4, 768]
         # == End  : External Graph ==
 
         # == Begin: Q-Former Alignment ==

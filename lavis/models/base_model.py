@@ -207,6 +207,8 @@ class GatherLayer(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, x):
+        if not is_dist_avail_and_initialized():
+            return (x,)
         output = [
             torch.zeros_like(x) for _ in range(torch.distributed.get_world_size())
         ]
@@ -215,6 +217,8 @@ class GatherLayer(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *grads):
+        if not is_dist_avail_and_initialized():
+            return grads[0]
         all_gradients = torch.stack(grads)
         torch.distributed.all_reduce(all_gradients)
         return all_gradients[torch.distributed.get_rank()]
@@ -225,13 +229,15 @@ def all_gather_with_grad(tensors):
     Performs all_gather operation on the provided tensors.
     Graph remains connected for backward grad computation.
     """
-    # Queue the gathered tensors
+    # Not in distributed mode: return as-is
+    if not is_dist_avail_and_initialized():
+        return tensors
+
     world_size = torch.distributed.get_world_size()
     # There is no need for reduction in the single-proc case
     if world_size == 1:
         return tensors
 
-    # tensor_all = GatherLayer.apply(tensors)
     tensor_all = GatherLayer.apply(tensors)
 
     return torch.cat(tensor_all, dim=0)

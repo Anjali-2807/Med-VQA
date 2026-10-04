@@ -119,13 +119,19 @@ class VQARADScore(Metric):
         return score
 
     def get_best_score(self):
-        self.sync()
-        score = self.score / self.total
+        try:
+            self.sync()
+        except Exception:
+            pass
+        score = self.score / self.total if self.total != 0 else 0
         if score > self.best_score:
             self.best_score = score
             self.best_close_score = self.close_score / self.close_total if self.close_total != 0 else 0
             self.best_open_score = self.open_score / self.open_total if self.open_total != 0 else 0
-        self.unsync()
+        try:
+            self.unsync()
+        except Exception:
+            pass
         return self.best_score
 
     def get_best_close_score(self):

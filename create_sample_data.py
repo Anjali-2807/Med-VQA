@@ -60,14 +60,78 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         os.makedirs(ext_dir, exist_ok=True)
         adj_path = os.path.join(ext_dir, "adj_matrix.pt")
         organ_path = os.path.join(ext_dir, "organ_disease_info.pt")
+        edge_index_path = os.path.join(ext_dir, "edge_index.pt")
+        edge_type_path = os.path.join(ext_dir, "edge_type.pt")
         
-        if not os.path.exists(adj_path):
-            torch.save(torch.eye(577, dtype=torch.float32), adj_path)
-            print(f"✅ Pre-generated Knowledge Graph adjacency tensor: {adj_path}")
-            
-        if not os.path.exists(organ_path):
-            torch.save(torch.randint(0, 30522, (1, 577), dtype=torch.long), organ_path)
-            print(f"✅ Pre-generated Knowledge Graph token tensor: {organ_path}")
+        num_nodes = 577
+        num_relations = 5  # 0: is_part_of, 1: manifests_as, 2: located_in, 3: adjacent_to, 4: self_loop
+
+        edges = []
+        edge_types = []
+
+        # 1. Self-loops (Relation type 4)
+        for i in range(num_nodes):
+            edges.append((i, i))
+            edge_types.append(4)
+
+        # 2. Structured Anatomical & Disease Relational Triplets
+        # 0: is_part_of (Sub-organ -> Organ -> Region)
+        # 1: manifests_as (Disease -> Finding)
+        # 2: located_in (Disease -> Organ)
+        # 3: adjacent_to (Organ -> Organ)
+
+        # Organs (nodes 0 to 49)
+        # Sub-regions (nodes 50 to 149)
+        # Diseases (nodes 150 to 349)
+        # Findings (nodes 350 to 576)
+
+        # Build part_of relations (50..149 -> 0..49)
+        for sub in range(50, 150):
+            parent_organ = (sub - 50) % 50
+            edges.append((sub, parent_organ))
+            edge_types.append(0)  # is_part_of
+            edges.append((parent_organ, sub))
+            edge_types.append(0)
+
+        # Build located_in relations (150..349 -> 0..49)
+        for dis in range(150, 350):
+            target_organ = (dis - 150) % 50
+            edges.append((dis, target_organ))
+            edge_types.append(2)  # located_in
+            edges.append((target_organ, dis))
+            edge_types.append(2)
+
+        # Build manifests_as relations (150..349 -> 350..576)
+        for dis in range(150, 350):
+            finding = 350 + ((dis - 150) % 227)
+            edges.append((dis, finding))
+            edge_types.append(1)  # manifests_as
+            edges.append((finding, dis))
+            edge_types.append(1)
+
+        # Build adjacent_to relations among organs (0..49)
+        for org in range(0, 49):
+            adj_org = (org + 1) % 50
+            edges.append((org, adj_org))
+            edge_types.append(3)  # adjacent_to
+
+        edge_index_tensor = torch.tensor(edges, dtype=torch.long).t().contiguous() # [2, E]
+        edge_type_tensor = torch.tensor(edge_types, dtype=torch.long) # [E]
+
+        # Dense adjacency matrix for backward compatibility
+        adj_matrix = torch.zeros((num_nodes, num_nodes), dtype=torch.float32)
+        for src, dst in edges:
+            adj_matrix[src, dst] = 1.0
+
+        torch.save(adj_matrix, adj_path)
+        torch.save(torch.randint(0, 30522, (1, num_nodes), dtype=torch.long), organ_path)
+        torch.save(edge_index_tensor, edge_index_path)
+        torch.save(edge_type_tensor, edge_type_path)
+
+        print(f"✅ Pre-generated Relational Knowledge Graph edge index tensor: {edge_index_path} (Edges: {edge_index_tensor.size(1)})")
+        print(f"✅ Pre-generated Relational Knowledge Graph edge type tensor: {edge_type_path} (Relations: {num_relations})")
+        print(f"✅ Pre-generated Knowledge Graph adjacency tensor: {adj_path}")
+        print(f"✅ Pre-generated Knowledge Graph token tensor: {organ_path}")
     except Exception as e:
         print(f"⚠️ Could not generate graph features: {e}")
 

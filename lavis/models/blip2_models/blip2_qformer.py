@@ -233,7 +233,8 @@ class Blip2Qformer(Blip2Base):
         sim_t2i = sim_t2i / self.temp  # [batch_size, batch_size*num_gpu]
 
         # 生成目标标签
-        rank = dist.get_rank()
+        # Safe rank retrieval: returns 0 when not in distributed mode
+        rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
         bs = image_embeds.size(0)
         targets = torch.linspace(rank * bs, rank * bs + bs - 1, bs, dtype=int).to(
             image_embeds.device

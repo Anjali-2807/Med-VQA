@@ -504,8 +504,8 @@ class CLIP(BaseModel):
             from torch import distributed as dist
 
             self._loss = ClipLoss(
-                world_size=dist.get_world_size(),
-                rank=dist.get_rank(),
+                world_size=dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1,
+                rank=dist.get_rank() if dist.is_available() and dist.is_initialized() else 0,
                 local_loss=False,
                 gather_with_grad=False,
                 use_horovod=False,

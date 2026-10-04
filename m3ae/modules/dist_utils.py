@@ -261,7 +261,7 @@ def reduce_dict(input_dict, average=True):
             values.append(input_dict[k])
         values = torch.stack(values, dim=0)
         dist.reduce(values, dst=0)
-        if dist.get_rank() == 0 and average:
+        if get_rank() == 0 and average:
             # only main process gets accumulated, so only divide by
             # world_size in this case
             values /= world_size

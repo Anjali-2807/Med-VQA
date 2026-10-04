@@ -179,15 +179,19 @@ class GatherLayer(autograd.Function):
 
     @staticmethod
     def forward(ctx, x):
+        if not is_dist_avail_and_initialized():
+            return (x,)
         output = [torch.zeros_like(x) for _ in range(dist.get_world_size())]
         dist.all_gather(output, x)
         return tuple(output)
 
     @staticmethod
     def backward(ctx, *grads):
+        if not is_dist_avail_and_initialized():
+            return grads[0]
         all_gradients = torch.stack(grads)
         dist.all_reduce(all_gradients)
-        return all_gradients[dist.get_rank()]
+        return all_gradients[get_rank()]
 
 
 def all_gather_batch_with_grad(tensors):
