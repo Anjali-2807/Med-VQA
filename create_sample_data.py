@@ -146,26 +146,34 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         node_concepts = list(dict.fromkeys(organs + sub_regions + diseases + findings))
         num_nodes = len(node_concepts)
 
-        # Convert medical concepts to real BERT Token IDs
+        # Convert full multi-word medical concepts to BERT Token ID sequences
         try:
             tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-            token_ids = [tokenizer.encode(c, add_special_tokens=False)[0] for c in node_concepts]
+            encoded = tokenizer(node_concepts, padding=True, truncation=True, max_length=16, return_tensors="pt")
+            node_token_tensor = encoded.input_ids # [num_nodes, seq_len]
         except Exception:
-            token_ids = [abs(hash(c)) % 30522 for c in node_concepts]
-            
-        node_token_tensor = torch.tensor([token_ids], dtype=torch.long) # [1, num_nodes]
+            token_ids = [[abs(hash(c)) % 30522] for c in node_concepts]
+            node_token_tensor = torch.tensor(token_ids, dtype=torch.long)
 
         # --- 2. Build Authentic Medical Ontology Graph Triplets ---
-        # Concept to index map (100% unique 1-to-1 mapping!)
         concept_to_idx = {c: i for i, c in enumerate(node_concepts)}
         
         edges = []
         edge_types = []
 
+        def find_concept(query):
+            query_lower = query.lower()
+            if query_lower in concept_to_idx:
+                return concept_to_idx[query_lower]
+            for concept, idx in concept_to_idx.items():
+                if query_lower in concept or concept in query_lower:
+                    return idx
+            return None
+
         def add_rel(src_name, dst_name, forward_rel, reverse_rel):
-            if src_name in concept_to_idx and dst_name in concept_to_idx:
-                u = concept_to_idx[src_name]
-                v = concept_to_idx[dst_name]
+            u = find_concept(src_name)
+            v = find_concept(dst_name)
+            if u is not None and v is not None and u != v:
                 edges.append((u, v))
                 edge_types.append(forward_rel)
                 if reverse_rel is not None:

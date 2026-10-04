@@ -108,11 +108,11 @@ class RelationalGraphConvLayer(nn.Module):
         return out
 
 
-class RGCNKGEModule(nn.Module):
+class QuestionGuidedRGCN(nn.Module):
     """
-    Upgraded Knowledge Graph Embedding (KGE) Module using 2-layer R-GCN + Question-guided Cross-Attention.
+    Upgraded 2-Layer R-GCN Module with Question-guided Graph-Text Attention.
     """
-    def __init__(self, d_model=768, num_relations=5, num_bases=4, dropout=0.1):
+    def __init__(self, d_model=768, num_relations=8, num_bases=4, dropout=0.1):
         super().__init__()
         self.d_model = d_model
         
@@ -173,6 +173,10 @@ class RGCNKGEModule(nn.Module):
         k_prime = self.out_proj(k_prime)
 
         return k_prime
+
+
+# Backwards compatibility alias
+RGCNKGEModule = QuestionGuidedRGCN
 
 
 if __name__ == "__main__":

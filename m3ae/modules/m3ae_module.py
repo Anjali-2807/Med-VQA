@@ -22,7 +22,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 from m3ae.modules import objectives, m3ae_utils
 from m3ae.modules import prediction_heads
 from m3ae.modules.language_encoders.bert_model import BertCrossLayer
-from models.rgcn_kge_module import RGCNKGEModule
+from models.rgcn_kge_module import QuestionGuidedRGCN
 from m3ae.modules.m3ae_utils import init_weights
 from m3ae.modules.vision_encoders import swin_transformer as swin
 from m3ae.modules.vision_encoders.clip_model import build_model, adapt_position_encoding
@@ -163,7 +163,7 @@ class M3AETransformerSS(pl.LightningModule):
                 raise RuntimeError(f"❌ Failed to load or generate the medical knowledge graph: {e}") from e
 
         # 2-Layer R-GCN + Question-guided Cross Attention Module
-        self.RGCN_layer = RGCNKGEModule(d_model=config["hidden_size"], num_relations=8, num_bases=4)
+        self.RGCN_layer = QuestionGuidedRGCN(d_model=config["hidden_size"], num_relations=8, num_bases=4)
         self.organ_average = nn.Conv1d(self.organ_disease_feat_size, self.GAT_feat, 1)
         self.organ_average.apply(init_weights)
         # == End  : External Graph ==
@@ -477,18 +477,24 @@ class M3AETransformerSS(pl.LightningModule):
         # == End  : Multi-Modal Fusion ==
 
         # == Begin: External Graph (2-Layer R-GCN + Question-guided Cross Attention) ==
-        organ_disease_tokens = self.organ_disease_feat.squeeze(0)
-        if organ_disease_tokens.dim() > 1:
-            organ_disease_tokens = organ_disease_tokens[0]
-        node_embeds = self.language_encoder.embeddings.word_embeddings(organ_disease_tokens.to(x.device)) # [577, 768]
+        organ_disease_tokens = self.organ_disease_feat
+        if organ_disease_tokens.dim() == 3:
+            organ_disease_tokens = organ_disease_tokens.squeeze(0)
 
-        # Pass node_embeds [577, 768], edge_index, edge_type, and question text embeddings x into R-GCN
+        # Mean-pool contextual embeddings for full multi-word medical concept phrases
+        phrase_embeds = self.language_encoder.embeddings(organ_disease_tokens.to(x.device)) # [num_nodes, seq_len, 768] or [num_nodes, 768]
+        if phrase_embeds.dim() == 3:
+            node_embeds = phrase_embeds.mean(dim=1) # [num_nodes, 768]
+        else:
+            node_embeds = phrase_embeds
+
+        # Pass node_embeds [N, 768], edge_index, edge_type, and question text embeddings x into R-GCN
         RGCN_feat = self.RGCN_layer(
             node_embeds,
             self.edge_index.to(x.device),
             self.edge_type.to(x.device),
             x
-        ) # [B, 577, 768]
+        ) # [B, N, 768]
         GAT_feat = self.organ_average(RGCN_feat) # [B, 4, 768]
         # == End  : External Graph ==
 
