@@ -163,7 +163,8 @@ class M3AETransformerSS(pl.LightningModule):
                 self.edge_type = torch.full((num_nodes,), 4, dtype=torch.long, device=used_device)
 
         # 2-Layer R-GCN + Question-guided Cross Attention
-        self.GAT_layer = RGCNKGEModule(d_model=config["hidden_size"], num_relations=5, num_bases=4)
+        self.GAT_layer = RGCNKGEModule(d_model=config["hidden_size"], num_relations=8, num_bases=4)
+        self.RGCN_layer = self.GAT_layer # Clean alias for 2-Layer R-GCN module
         self.organ_average = nn.Conv1d(self.organ_disease_feat_size, self.GAT_feat, 1)
         self.organ_average.apply(init_weights)
         # == End  : External Graph ==

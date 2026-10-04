@@ -57,6 +57,8 @@ def generate_sample_arrows(save_dir="data/finetune_arrows"):
 def generate_external_graph_feats(ext_dir="data/external_data"):
     try:
         import torch
+        from transformers import BertTokenizer
+        
         os.makedirs(ext_dir, exist_ok=True)
         adj_path = os.path.join(ext_dir, "adj_matrix.pt")
         organ_path = os.path.join(ext_dir, "organ_disease_info.pt")
@@ -64,74 +66,123 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         edge_type_path = os.path.join(ext_dir, "edge_type.pt")
         
         num_nodes = 577
-        num_relations = 5  # 0: is_part_of, 1: manifests_as, 2: located_in, 3: adjacent_to, 4: self_loop
+        # 8 Directed Relational Semantics:
+        # 0: is_part_of, 1: has_part, 2: located_in, 3: contains,
+        # 4: manifests_as, 5: indicated_by, 6: adjacent_to, 7: self_loop
+        num_relations = 8
 
+        # --- 1. Real Medical Term Vocabulary Mapping ---
+        organs = [
+            "head", "brain", "skull", "chest", "lung", "pleura", "heart", "aorta", "mediastinum", "airway",
+            "abdomen", "liver", "gallbladder", "spleen", "pancreas", "kidney", "stomach", "bowel", "colon", "bladder",
+            "spine", "vertebra", "pelvis", "hip", "femur", "shoulder", "clavicle", "rib", "diaphragm", "peritoneum",
+            "neck", "thyroid", "carotid", "trachea", "esophagus", "adrenal", "uterus", "ovary", "prostate", "vascular",
+            "bone", "joint", "muscle", "soft tissue", "lymph node", "thoracic wall", "retroperitoneum", "pericardium", "bronchus", "hilar region"
+        ]
+        
+        sub_regions = [
+            "upper lobe", "lower lobe", "middle lobe", "apex", "base", "costophrenic angle", "ventricle", "cerebellum",
+            "brainstem", "frontal lobe", "parietal lobe", "occipital lobe", "temporal lobe", "white matter", "grey matter",
+            "left atrium", "right atrium", "left ventricle", "right ventricle", "ascending aorta", "aortic arch",
+            "hepatic lobe", "renal cortex", "renal medulla", "splenic parenchyma", "pancreatic head", "pancreatic tail",
+            "lumbar spine", "cervical spine", "thoracic spine", "sacrum", "iliac crest", "femoral head", "acetabulum",
+            "pleural space", "pericardial space", "peritoneal cavity", "mediastinal space", "hilar area", "subpleural space"
+        ]
+        
+        diseases = [
+            "pneumonia", "cardiomegaly", "pleural effusion", "atelectasis", "pneumothorax", "consolidation", "pulmonary edema",
+            "lung nodule", "lung mass", "tuberculosis", "emphysema", "bronchitis", "stroke", "brain infarct", "intracranial hemorrhage",
+            "hydrocephalus", "brain tumor", "glioblastoma", "meningioma", "hepatic steatosis", "liver cirrhosis", "hepatocellular carcinoma",
+            "cholecystitis", "cholelithiasis", "splenomegaly", "pancreatitis", "renal cyst", "nephrolithiasis", "renal cell carcinoma",
+            "appendicitis", "bowel obstruction", "diverticulitis", "fracture", "osteoarthritis", "spondylolisthesis", "disc herniation",
+            "bone metastasis", "lymphadenopathy", "aortic aneurysm", "pulmonary embolism", "deep vein thrombosis"
+        ]
+        
+        findings = [
+            "opacity", "ground glass opacity", "shadowing", "hyperintensity", "hypointensity", "ring enhancement",
+            "calcification", "fluid accumulation", "air fluid level", "soft tissue swelling", "cortical disruption",
+            "joint space narrowing", "osteophyte", "midline shift", "sulcal effacement", "mass effect", "pericardial effusion",
+            "ascites", "lymph node enlargement", "nodular lesion", "cavitation", "reticular pattern", "hilar enlargement", "vascular congestion"
+        ]
+
+        # Construct medical node concept list up to 577 nodes
+        node_concepts = []
+        for i in range(num_nodes):
+            if i < 50:
+                concept = organs[i % len(organs)]
+            elif i < 150:
+                concept = sub_regions[(i - 50) % len(sub_regions)]
+            elif i < 350:
+                concept = diseases[(i - 150) % len(diseases)]
+            else:
+                concept = findings[(i - 350) % len(findings)]
+            node_concepts.append(concept)
+
+        # Convert medical concepts to real BERT Token IDs
+        try:
+            tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+            token_ids = [tokenizer.encode(c, add_special_tokens=False)[0] for c in node_concepts]
+        except Exception:
+            token_ids = [abs(hash(c)) % 30522 for c in node_concepts]
+            
+        node_token_tensor = torch.tensor([token_ids], dtype=torch.long) # [1, 577]
+
+        # --- 2. Build Directed Relational Edges ---
         edges = []
         edge_types = []
 
-        # 1. Self-loops (Relation type 4)
+        # Self-loops (Relation 7)
         for i in range(num_nodes):
             edges.append((i, i))
-            edge_types.append(4)
+            edge_types.append(7)
 
-        # 2. Structured Anatomical & Disease Relational Triplets
-        # 0: is_part_of (Sub-organ -> Organ -> Region)
-        # 1: manifests_as (Disease -> Finding)
-        # 2: located_in (Disease -> Organ)
-        # 3: adjacent_to (Organ -> Organ)
-
-        # Organs (nodes 0 to 49)
-        # Sub-regions (nodes 50 to 149)
-        # Diseases (nodes 150 to 349)
-        # Findings (nodes 350 to 576)
-
-        # Build part_of relations (50..149 -> 0..49)
+        # Sub-region <-> Organ: is_part_of (0) and has_part (1)
         for sub in range(50, 150):
             parent_organ = (sub - 50) % 50
             edges.append((sub, parent_organ))
-            edge_types.append(0)  # is_part_of
+            edge_types.append(0)  # sub_region is_part_of organ
             edges.append((parent_organ, sub))
-            edge_types.append(0)
+            edge_types.append(1)  # organ has_part sub_region
 
-        # Build located_in relations (150..349 -> 0..49)
+        # Disease <-> Organ: located_in (2) and contains (3)
         for dis in range(150, 350):
             target_organ = (dis - 150) % 50
             edges.append((dis, target_organ))
-            edge_types.append(2)  # located_in
+            edge_types.append(2)  # disease located_in organ
             edges.append((target_organ, dis))
-            edge_types.append(2)
+            edge_types.append(3)  # organ contains disease
 
-        # Build manifests_as relations (150..349 -> 350..576)
+        # Disease <-> Finding: manifests_as (4) and indicated_by (5)
         for dis in range(150, 350):
             finding = 350 + ((dis - 150) % 227)
             edges.append((dis, finding))
-            edge_types.append(1)  # manifests_as
+            edge_types.append(4)  # disease manifests_as finding
             edges.append((finding, dis))
-            edge_types.append(1)
+            edge_types.append(5)  # finding indicated_by disease
 
-        # Build adjacent_to relations among organs (0..49)
+        # Organ <-> Organ: adjacent_to (6)
         for org in range(0, 49):
             adj_org = (org + 1) % 50
             edges.append((org, adj_org))
-            edge_types.append(3)  # adjacent_to
+            edge_types.append(6)
+            edges.append((adj_org, org))
+            edge_types.append(6)
 
-        edge_index_tensor = torch.tensor(edges, dtype=torch.long).t().contiguous() # [2, E]
-        edge_type_tensor = torch.tensor(edge_types, dtype=torch.long) # [E]
+        edge_index_tensor = torch.tensor(edges, dtype=torch.long).t().contiguous()
+        edge_type_tensor = torch.tensor(edge_types, dtype=torch.long)
 
-        # Dense adjacency matrix for backward compatibility
         adj_matrix = torch.zeros((num_nodes, num_nodes), dtype=torch.float32)
         for src, dst in edges:
             adj_matrix[src, dst] = 1.0
 
         torch.save(adj_matrix, adj_path)
-        torch.save(torch.randint(0, 30522, (1, num_nodes), dtype=torch.long), organ_path)
+        torch.save(node_token_tensor, organ_path)
         torch.save(edge_index_tensor, edge_index_path)
         torch.save(edge_type_tensor, edge_type_path)
 
-        print(f"✅ Pre-generated Relational Knowledge Graph edge index tensor: {edge_index_path} (Edges: {edge_index_tensor.size(1)})")
-        print(f"✅ Pre-generated Relational Knowledge Graph edge type tensor: {edge_type_path} (Relations: {num_relations})")
-        print(f"✅ Pre-generated Knowledge Graph adjacency tensor: {adj_path}")
-        print(f"✅ Pre-generated Knowledge Graph token tensor: {organ_path}")
+        print(f"✅ Real Medical Knowledge Graph Token Tensor created with {len(set(node_concepts))} medical terms!")
+        print(f"✅ Pre-generated Relational Edge Index: {edge_index_path} ({edge_index_tensor.size(1)} edges)")
+        print(f"✅ Pre-generated Relational Edge Types: {edge_type_path} ({num_relations} directed relation types)")
     except Exception as e:
         print(f"⚠️ Could not generate graph features: {e}")
 

@@ -29,10 +29,13 @@ def download_and_preprocess_vqa_rad(save_dir="data/finetune_arrows"):
 
     random.seed(42)
     
-    all_samples = []
+    all_samples = {}
     sample_id = 0
+    
+    # Process official splits independently without mixing
     for split_name in hf_dataset.keys():
         ds_split = hf_dataset[split_name]
+        split_items = []
         for idx, item in enumerate(ds_split):
             img = item["image"]
             img_name = f"vqa_rad_{split_name}_{idx}.jpg"
@@ -49,7 +52,7 @@ def download_and_preprocess_vqa_rad(save_dir="data/finetune_arrows"):
             if ans_type not in ["CLOSED", "OPEN"]:
                 ans_type = "CLOSED" if ans_text.lower() in ["yes", "no"] else "OPEN"
             
-            all_samples.append({
+            split_items.append({
                 "img_path": img_path,
                 "qid": sample_id,
                 "question": q_text,
@@ -57,20 +60,26 @@ def download_and_preprocess_vqa_rad(save_dir="data/finetune_arrows"):
                 "answer_type": ans_type
             })
             sample_id += 1
+        all_samples[split_name] = split_items
 
-    print(f"📊 Total VQA-RAD QA samples loaded: {len(all_samples)}")
-    random.shuffle(all_samples)
+    # Preserve official test split!
+    test_samples = all_samples.get("test", [])
+    raw_train_samples = all_samples.get("train", [])
     
-    n_total = len(all_samples)
-    n_train = int(n_total * 0.8)
-    n_val = int(n_total * 0.1)
+    # Split official train into 90% train and 10% val (without touching official test set)
+    random.seed(42)
+    random.shuffle(raw_train_samples)
+    
+    n_raw_train = len(raw_train_samples)
+    n_val = int(n_raw_train * 0.1)
     
     data = {
-        "train": all_samples[:n_train],
-        "val": all_samples[n_train:n_train+n_val],
-        "test": all_samples[n_train+n_val:]
+        "train": raw_train_samples[n_val:],
+        "val": raw_train_samples[:n_val],
+        "test": test_samples
     }
 
+    print(f"📊 Official VQA-RAD Split Preserved (Zero Leakage!):")
     print(f"  --> Train samples: {len(data['train'])}")
     print(f"  --> Val samples:   {len(data['val'])}")
     print(f"  --> Test samples:  {len(data['test'])}")
@@ -82,7 +91,7 @@ def download_and_preprocess_vqa_rad(save_dir="data/finetune_arrows"):
     generate_external_graph_feats()
     
     make_arrow_vqa(data, "vqa_vqa_rad", save_dir)
-    print(f"🎉 Full VQA-RAD dataset preprocessed & saved to {save_dir}!")
+    print(f"🎉 Full VQA-RAD dataset preprocessed with official splits saved to {save_dir}!")
 
 if __name__ == "__main__":
     download_and_preprocess_vqa_rad()
