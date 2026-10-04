@@ -123,27 +123,29 @@ class M3AETransformerSS(pl.LightningModule):
         # == Begin: External Graph ==
         used_device = f"cuda:{config['gpu_ids']}" if torch.cuda.is_available() else "cpu"
         self.latent_prompt_size = config['latent_prompt_size']  # 32
-        self.organ_disease_feat_size = 577  # it's fixed
-        # self.GAT_feat = self.latent_prompt_size // 8 if self.latent_prompt_size >= 8 else 1
         self.GAT_feat = 32
         
         adj_path = config["adj_feat_path"]
         organ_path = config["organ_disease_feat"]
         os.makedirs(os.path.dirname(adj_path), exist_ok=True)
 
-        if os.path.exists(adj_path):
-            self.adj_feat = torch.load(adj_path, map_location=used_device)
-        else:
-            print(f"⚠️ {adj_path} not found. Generating default Knowledge Graph adjacency matrix (577x577)...")
-            self.adj_feat = torch.eye(577, dtype=torch.float32, device=used_device)
-            torch.save(self.adj_feat.cpu(), adj_path)
-
         if os.path.exists(organ_path):
             self.organ_disease_feat = torch.load(organ_path, map_location=used_device)
         else:
-            print(f"⚠️ {organ_path} not found. Generating default Knowledge Graph token features (1x577)...")
-            self.organ_disease_feat = torch.randint(0, config.get("vocab_size", 30522), (1, 577), dtype=torch.long, device=used_device)
-            torch.save(self.organ_disease_feat.cpu(), organ_path)
+            try:
+                from create_sample_data import generate_external_graph_feats
+                generate_external_graph_feats(os.path.dirname(organ_path))
+                self.organ_disease_feat = torch.load(organ_path, map_location=used_device)
+            except Exception as e:
+                raise RuntimeError(f"❌ Failed to load or generate organ_disease_feat: {e}") from e
+
+        self.organ_disease_feat_size = self.organ_disease_feat.size(-1)
+
+        if os.path.exists(adj_path):
+            self.adj_feat = torch.load(adj_path, map_location=used_device)
+        else:
+            self.adj_feat = torch.eye(self.organ_disease_feat_size, dtype=torch.float32, device=used_device)
+            torch.save(self.adj_feat.cpu(), adj_path)
 
         edge_index_path = os.path.join(os.path.dirname(adj_path), "edge_index.pt")
         edge_type_path = os.path.join(os.path.dirname(adj_path), "edge_type.pt")

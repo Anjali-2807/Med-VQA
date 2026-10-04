@@ -65,7 +65,6 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         edge_index_path = os.path.join(ext_dir, "edge_index.pt")
         edge_type_path = os.path.join(ext_dir, "edge_type.pt")
         
-        num_nodes = 577
         # 8 Directed Relational Semantics:
         # 0: is_part_of, 1: has_part, 2: located_in, 3: contains,
         # 4: manifests_as, 5: indicated_by, 6: adjacent_to, 7: self_loop
@@ -143,11 +142,9 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
             "Bankart lesion", "Hill Sachs lesion", "SLAP lesion"
         ]
 
-        # Assemble 577 100% Unique Medical Concept Nodes
-        node_concepts = organs + sub_regions + diseases + findings
-        # Verify 100% uniqueness
-        assert len(node_concepts) == len(set(node_concepts)), f"Duplicates found in node_concepts! Total: {len(node_concepts)}, Unique: {len(set(node_concepts))}"
-        assert len(node_concepts) == num_nodes, f"Node count mismatch: {len(node_concepts)} vs {num_nodes}"
+        # Assemble 100% Unique Medical Concept Nodes dynamically
+        node_concepts = list(dict.fromkeys(organs + sub_regions + diseases + findings))
+        num_nodes = len(node_concepts)
 
         # Convert medical concepts to real BERT Token IDs
         try:
@@ -156,7 +153,7 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         except Exception:
             token_ids = [abs(hash(c)) % 30522 for c in node_concepts]
             
-        node_token_tensor = torch.tensor([token_ids], dtype=torch.long) # [1, 577]
+        node_token_tensor = torch.tensor([token_ids], dtype=torch.long) # [1, num_nodes]
 
         # --- 2. Build Authentic Medical Ontology Graph Triplets ---
         # Concept to index map (100% unique 1-to-1 mapping!)
