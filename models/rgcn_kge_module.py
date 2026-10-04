@@ -65,16 +65,17 @@ class RelationalGraphConvLayer(nn.Module):
             [N_v, out_features] Updated node representations
         """
         N_v = x.size(0)
-        
+        target_dtype = x.dtype
+        target_device = x.device
+
         # Self-loop message
-        out = torch.matmul(x, self.weight_self)
+        out = torch.matmul(x, self.weight_self.to(device=target_device, dtype=target_dtype))
 
         # Compute relation weights W_r
         if self.num_bases > 0:
-            # W_r = sum_b (coeffs[r, b] * bases[b]) -> [num_relations, in_features, out_features]
-            W_r = torch.einsum('rb, bio -> rio', self.rel_coeffs, self.bases)
+            W_r = torch.einsum('rb, bio -> rio', self.rel_coeffs, self.bases).to(device=target_device, dtype=target_dtype)
         else:
-            W_r = self.weights
+            W_r = self.weights.to(device=target_device, dtype=target_dtype)
 
         src, dst = edge_index[0], edge_index[1]
 
@@ -91,17 +92,18 @@ class RelationalGraphConvLayer(nn.Module):
             msg = torch.matmul(x[r_src], W_r[r]) # [E_r, out_features]
 
             # Degree normalization c_{i,r}
-            deg = torch.zeros(N_v, device=x.device).scatter_add_(0, r_dst, torch.ones_like(r_dst, dtype=torch.float))
-            deg = deg.clamp(min=1.0)
+            deg = torch.zeros(N_v, device=target_device, dtype=target_dtype).scatter_add_(
+                0, r_dst, torch.ones_like(r_dst, dtype=target_dtype)
+            ).clamp(min=1.0)
             norm = 1.0 / deg[r_dst].unsqueeze(-1)
 
-            msg_norm = msg * norm
+            msg_norm = (msg * norm).to(dtype=out.dtype)
 
             # Scatter add messages to destination nodes
             out.scatter_add_(0, r_dst.unsqueeze(-1).expand(-1, self.out_features), msg_norm)
 
         if self.bias is not None:
-            out = out + self.bias
+            out = out + self.bias.to(device=target_device, dtype=target_dtype)
 
         return out
 
@@ -136,6 +138,13 @@ class RGCNKGEModule(nn.Module):
         Returns:
             k_prime: [B, N_v, d_model] Question-conditioned knowledge graph representation
         """
+        target_dtype = text_embeds.dtype
+        target_device = text_embeds.device
+
+        f_od = f_od.to(device=target_device, dtype=target_dtype)
+        edge_index = edge_index.to(device=target_device)
+        edge_type = edge_type.to(device=target_device)
+
         # Layer 1 R-GCN + Activation + Dropout
         h = self.rgcn1(f_od, edge_index, edge_type)
         h = F.gelu(h)
@@ -167,22 +176,21 @@ class RGCNKGEModule(nn.Module):
 
 
 if __name__ == "__main__":
-    print("Testing RGCNKGEModule implementation...")
+    print("Testing RGCNKGEModule implementation under float32 and float16 (AMP)...")
     d_model = 768
-    N_v = 30 # 30 knowledge graph nodes (organs + diseases + findings)
-    E = 60   # 60 relational edges
-    num_relations = 4 # e.g. 0: is_part_of, 1: manifests, 2: adjacent_to, 3: causes
+    N_v = 30
+    E = 60
+    num_relations = 5
 
-    # Dummy inputs
-    f_od = torch.randn(N_v, d_model)
-    edge_index = torch.randint(0, N_v, (2, E))
-    edge_type = torch.randint(0, num_relations, (E,))
-    text_embeds = torch.randn(8, 32, d_model) # Batch=8, SeqLen=32
+    for dtype in [torch.float32, torch.float16]:
+        f_od = torch.randn(N_v, d_model, dtype=dtype)
+        edge_index = torch.randint(0, N_v, (2, E))
+        edge_type = torch.randint(0, num_relations, (E,))
+        text_embeds = torch.randn(8, 32, d_model, dtype=dtype)
 
-    model = RGCNKGEModule(d_model=d_model, num_relations=num_relations)
-    output = model(f_od, edge_index, edge_type, text_embeds)
-    
-    print(f"Input Node Embeddings Shape: {f_od.shape}")
-    print(f"Output Question-Guided KG Shape: {output.shape}")
-    assert output.shape == (8, N_v, d_model), "Shape mismatch!"
-    print("R-GCN KGE Module test passed successfully!")
+        model = RGCNKGEModule(d_model=d_model, num_relations=num_relations).to(dtype=dtype)
+        output = model(f_od, edge_index, edge_type, text_embeds)
+        
+        assert output.shape == (8, N_v, d_model), "Shape mismatch!"
+        assert output.dtype == dtype, "Dtype mismatch!"
+        print(f"✅ R-GCN KGE Module test passed for dtype={dtype}!")
