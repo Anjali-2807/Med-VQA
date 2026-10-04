@@ -121,7 +121,7 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         ]
         
         findings = [
-            "opacity", "ground glass opacity", "shadowing", "hyperintensity", "hypointensity", "ring enhancement", "calcification", "fluid accumulation", "air fluid level", "soft tissue swelling",
+            "opacity", "consolidation", "ground glass opacity", "shadowing", "hyperintensity", "hypointensity", "ring enhancement", "calcification", "fluid accumulation", "air fluid level", "soft tissue swelling",
             "cortical disruption", "joint space narrowing", "osteophyte", "midline shift", "sulcal effacement", "mass effect", "pericardial effusion", "ascites", "lymph node enlargement", "nodular lesion",
             "cavitation", "reticular pattern", "hilar enlargement", "vascular congestion", "honeycombing", "crazy paving pattern", "tree in bud sign", "halo sign", "reverse halo sign", "silhouette sign",
             "air bronchogram", "kerley b lines", "continuous diaphragm sign", "deep sulcus sign", "luftsichel sign", "golden s sign", "Hampton hump", "Westermark sign", "knuckle sign", "water bottle sign",
@@ -169,18 +169,15 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         edge_types = []
 
         def find_concept(query):
-            query_lower = query.lower()
-            if query_lower in concept_to_idx:
-                return concept_to_idx[query_lower]
-            for concept, idx in concept_to_idx.items():
-                if query_lower in concept or concept in query_lower:
-                    return idx
-            return None
+            key = query.lower().strip()
+            if key not in concept_to_idx:
+                raise ValueError(f"❌ KG concept '{query}' not found in node concept vocabulary!")
+            return concept_to_idx[key]
 
         def add_rel(src_name, dst_name, forward_rel, reverse_rel):
             u = find_concept(src_name)
             v = find_concept(dst_name)
-            if u is not None and v is not None and u != v:
+            if u != v:
                 edges.append((u, v))
                 edge_types.append(forward_rel)
                 if reverse_rel is not None:
@@ -194,56 +191,54 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
 
         # Anatomical Part-of Relations (sub_region is_part_of organ [0], organ has_part sub_region [1])
         anatomy_triplets = [
-            ("upper lobe", "lung"), ("lower lobe", "lung"), ("middle lobe", "lung"), ("apex", "lung"), ("base", "lung"), ("subpleural space", "lung"),
-            ("ventricle", "brain"), ("cerebellum", "brain"), ("brainstem", "brain"), ("frontal lobe", "brain"), ("parietal lobe", "brain"),
-            ("occipital lobe", "brain"), ("temporal lobe", "brain"), ("white matter", "brain"), ("grey matter", "brain"),
-            ("left atrium", "heart"), ("right atrium", "heart"), ("left ventricle", "heart"), ("right ventricle", "heart"),
-            ("ascending aorta", "aorta"), ("aortic arch", "aorta"), ("hepatic lobe", "liver"), ("renal cortex", "kidney"), ("renal medulla", "kidney"),
-            ("pancreatic head", "pancreas"), ("pancreatic tail", "pancreas"), ("splenic parenchyma", "spleen"),
-            ("lumbar spine", "spine"), ("cervical spine", "spine"), ("thoracic spine", "spine"), ("sacrum", "spine"),
-            ("femoral head", "hip"), ("acetabulum", "pelvis"), ("iliac crest", "pelvis"), ("pleural space", "pleura"), ("pericardial space", "heart")
+            ("right upper lobe", "lung"), ("right lower lobe", "lung"), ("right middle lobe", "lung"), ("left upper lobe", "lung"), ("left lower lobe", "lung"),
+            ("lung apex", "lung"), ("lung base", "lung"), ("subpleural lung space", "lung"), ("cardiac ventricle", "heart"), ("left atrium chamber", "heart"),
+            ("right atrium chamber", "heart"), ("left ventricle chamber", "heart"), ("right ventricle chamber", "heart"), ("cerebellar hemisphere", "brain"),
+            ("brainstem pons", "brain"), ("frontal cortex", "brain"), ("parietal cortex", "brain"), ("occipital cortex", "brain"), ("temporal cortex", "brain"),
+            ("cerebral white matter", "brain"), ("cerebral grey matter", "brain"), ("ascending thoracic aorta", "aorta"), ("aortic arch segment", "aorta"),
+            ("right hepatic lobe", "liver"), ("left hepatic lobe", "liver"), ("renal cortex area", "kidney"), ("renal medulla area", "kidney"),
+            ("pancreatic head segment", "pancreas"), ("pancreatic tail segment", "pancreas"), ("splenic parenchyma tissue", "spleen"),
+            ("lumbar vertebra spine", "spine"), ("cervical vertebra spine", "spine"), ("thoracic vertebra spine", "spine"), ("sacrum bone", "spine"),
+            ("femoral head bone", "hip"), ("acetabulum cavity", "pelvis"), ("iliac crest bone", "pelvis"), ("pleural space cavity", "pleura"), ("pericardial space cavity", "heart")
         ]
         for sub, org in anatomy_triplets:
             add_rel(sub, org, 0, 1)
 
         # Disease Located-in Relations (disease located_in organ [2], organ contains disease [3])
         location_triplets = [
-            ("pneumonia", "lung"), ("pneumonia", "chest"), ("pneumonia", "upper lobe"), ("pneumonia", "lower lobe"),
-            ("cardiomegaly", "heart"), ("cardiomegaly", "chest"), ("cardiomegaly", "left ventricle"),
-            ("pleural effusion", "pleura"), ("pleural effusion", "pleural space"), ("pleural effusion", "costophrenic angle"), ("pleural effusion", "chest"),
-            ("pneumothorax", "lung"), ("pneumothorax", "pleural space"), ("pneumothorax", "chest"),
-            ("atelectasis", "lung"), ("atelectasis", "upper lobe"), ("atelectasis", "lower lobe"),
-            ("pulmonary edema", "lung"), ("pulmonary edema", "chest"), ("pulmonary edema", "hilar area"),
-            ("stroke", "brain"), ("stroke", "head"), ("brain infarct", "brain"), ("brain infarct", "cerebellum"), ("intracranial hemorrhage", "brain"),
-            ("intracranial hemorrhage", "ventricle"), ("hydrocephalus", "brain"), ("hydrocephalus", "ventricle"),
-            ("brain tumor", "brain"), ("glioblastoma", "brain"), ("meningioma", "brain"),
-            ("hepatic steatosis", "liver"), ("liver cirrhosis", "liver"), ("hepatocellular carcinoma", "liver"),
-            ("cholecystitis", "gallbladder"), ("cholelithiasis", "gallbladder"), ("splenomegaly", "spleen"),
-            ("pancreatitis", "pancreas"), ("renal cyst", "kidney"), ("nephrolithiasis", "kidney"), ("renal cell carcinoma", "kidney"),
-            ("appendicitis", "bowel"), ("bowel obstruction", "bowel"), ("diverticulitis", "colon"),
-            ("fracture", "spine"), ("fracture", "pelvis"), ("fracture", "hip"), ("fracture", "femur"), ("fracture", "shoulder"), ("fracture", "rib"),
-            ("osteoarthritis", "joint"), ("spondylolisthesis", "spine"), ("disc herniation", "spine"),
-            ("lymphadenopathy", "lymph node"), ("lymphadenopathy", "mediastinum"), ("aortic aneurysm", "aorta"), ("pulmonary embolism", "lung")
+            ("bacterial pneumonia", "lung"), ("viral pneumonia", "lung"), ("aspiration pneumonia", "lung"), ("lobar pneumonia", "lung"), ("bronchopneumonia", "lung"),
+            ("bacterial pneumonia", "chest"), ("viral pneumonia", "chest"), ("cardiomegaly enlargement", "heart"), ("cardiomegaly enlargement", "chest"),
+            ("congestive heart failure", "heart"), ("left pleural effusion", "pleura"), ("right pleural effusion", "pleura"), ("bilateral pleural effusion", "pleura"),
+            ("exudative effusion", "pleura"), ("transudative effusion", "pleura"), ("tension pneumothorax", "lung"), ("spontaneous pneumothorax", "lung"),
+            ("lung atelectasis", "lung"), ("segmental atelectasis", "lung"), ("lobar atelectasis", "lung"), ("acute pulmonary edema", "lung"), ("cardiogenic edema", "heart"),
+            ("ischemic stroke", "brain"), ("hemorrhagic stroke", "brain"), ("acute brain infarct", "brain"), ("subacute brain infarct", "brain"), ("lacunar infarct", "brain"),
+            ("epidural hematoma", "brain"), ("subdural hematoma", "brain"), ("subarachnoid hemorrhage", "brain"), ("intraparenchymal hemorrhage", "brain"),
+            ("intraventricular hemorrhage", "brain"), ("obstructive hydrocephalus", "brain"), ("communicating hydrocephalus", "brain"), ("high grade glioblastoma", "brain"),
+            ("benign meningioma", "brain"), ("brain metastasis", "brain"), ("hepatic steatosis fatty liver", "liver"), ("liver cirrhosis fibrosis", "liver"),
+            ("hepatocellular carcinoma tumor", "liver"), ("acute cholecystitis", "gallbladder"), ("cholelithiasis gallstones", "gallbladder"), ("splenomegaly enlargement", "spleen"),
+            ("acute pancreatitis", "pancreas"), ("chronic pancreatitis", "pancreas"), ("simple renal cyst", "kidney"), ("polycystic kidney disease", "kidney"),
+            ("nephrolithiasis kidney stones", "kidney"), ("renal cell carcinoma tumor", "kidney"), ("acute appendicitis", "bowel"), ("small bowel obstruction", "bowel"),
+            ("large bowel obstruction", "colon"), ("sigmoid diverticulitis", "colon"), ("compression fracture", "spine"), ("pathologic fracture", "bone"),
+            ("comminuted fracture", "bone"), ("displaced fracture", "bone"), ("stress fracture", "bone"), ("hip osteoarthritis", "hip"), ("knee osteoarthritis", "joint"),
+            ("lumbar spondylolisthesis", "spine"), ("cervical spondylosis", "spine"), ("lumbar disc herniation", "spine"), ("cervical disc herniation", "spine"),
+            ("mediastinal lymphadenopathy", "lymph node"), ("hilar lymphadenopathy", "lymph node"), ("thoracic aortic aneurysm", "aorta"), ("abdominal aortic aneurysm", "aorta"),
+            ("acute pulmonary embolism", "lung"), ("deep vein thrombosis clot", "vascular")
         ]
         for dis, loc in location_triplets:
             add_rel(dis, loc, 2, 3)
 
         # Disease Manifestation Relations (disease manifests_as finding [4], finding indicated_by disease [5])
         manifestation_triplets = [
-            ("pneumonia", "opacity"), ("pneumonia", "consolidation"), ("pneumonia", "ground glass opacity"), ("pneumonia", "air fluid level"),
-            ("cardiomegaly", "mass effect"), ("cardiomegaly", "vascular congestion"), ("cardiomegaly", "shadowing"),
-            ("pleural effusion", "fluid accumulation"), ("pleural effusion", "opacity"), ("pleural effusion", "shadowing"),
-            ("pneumothorax", "hyperintensity"), ("pneumothorax", "air fluid level"),
-            ("atelectasis", "opacity"), ("atelectasis", "sulcal effacement"),
-            ("pulmonary edema", "fluid accumulation"), ("pulmonary edema", "vascular congestion"), ("pulmonary edema", "ground glass opacity"),
-            ("stroke", "hypointensity"), ("stroke", "mass effect"), ("brain infarct", "hypointensity"),
-            ("intracranial hemorrhage", "hyperintensity"), ("intracranial hemorrhage", "midline shift"), ("intracranial hemorrhage", "mass effect"),
-            ("hydrocephalus", "midline shift"), ("brain tumor", "ring enhancement"), ("brain tumor", "mass effect"),
-            ("hepatic steatosis", "hypointensity"), ("liver cirrhosis", "ascites"), ("cholecystitis", "fluid accumulation"),
-            ("cholelithiasis", "calcification"), ("splenomegaly", "mass effect"), ("pancreatitis", "fluid accumulation"),
-            ("renal cyst", "fluid accumulation"), ("nephrolithiasis", "calcification"), ("appendicitis", "fluid accumulation"),
-            ("fracture", "cortical disruption"), ("fracture", "soft tissue swelling"), ("osteoarthritis", "osteophyte"),
-            ("osteoarthritis", "joint space narrowing"), ("lymphadenopathy", "lymph node enlargement"), ("aortic aneurysm", "calcification")
+            ("bacterial pneumonia", "opacity"), ("bacterial pneumonia", "consolidation"), ("viral pneumonia", "ground glass opacity"), ("aspiration pneumonia", "air fluid level"),
+            ("lobar pneumonia", "consolidation"), ("bronchopneumonia", "opacity"), ("cardiomegaly enlargement", "mass effect"), ("congestive heart failure", "vascular congestion"),
+            ("left pleural effusion", "fluid accumulation"), ("right pleural effusion", "fluid accumulation"), ("bilateral pleural effusion", "fluid accumulation"),
+            ("tension pneumothorax", "hyperintensity"), ("spontaneous pneumothorax", "hyperintensity"), ("lung atelectasis", "opacity"), ("acute pulmonary edema", "fluid accumulation"),
+            ("ischemic stroke", "hypointensity"), ("hemorrhagic stroke", "hyperintensity"), ("acute brain infarct", "hypointensity"), ("intraparenchymal hemorrhage", "mass effect"),
+            ("obstructive hydrocephalus", "midline shift"), ("high grade glioblastoma", "ring enhancement"), ("benign meningioma", "mass effect"), ("hepatic steatosis fatty liver", "hypointensity"),
+            ("liver cirrhosis fibrosis", "ascites"), ("cholelithiasis gallstones", "calcification"), ("splenomegaly enlargement", "mass effect"), ("acute pancreatitis", "fluid accumulation"),
+            ("simple renal cyst", "fluid accumulation"), ("nephrolithiasis kidney stones", "calcification"), ("compression fracture", "cortical disruption"),
+            ("pathologic fracture", "soft tissue swelling"), ("hip osteoarthritis", "osteophyte"), ("knee osteoarthritis", "joint space narrowing"),
+            ("mediastinal lymphadenopathy", "lymph node enlargement"), ("thoracic aortic aneurysm", "calcification")
         ]
         for dis, find in manifestation_triplets:
             add_rel(dis, find, 4, 5)
