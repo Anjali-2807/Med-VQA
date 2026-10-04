@@ -139,7 +139,22 @@ class M3AETransformerSS(pl.LightningModule):
             except Exception as e:
                 raise RuntimeError(f"❌ Failed to load or generate organ_disease_feat: {e}") from e
 
-        self.organ_disease_feat_size = self.organ_disease_feat.size(-1)
+        # Extract token IDs and attention masks for concept nodes
+        if isinstance(self.organ_disease_feat, dict):
+            self.node_token_ids = self.organ_disease_feat["input_ids"]
+            self.node_attention_mask = self.organ_disease_feat["attention_mask"]
+        else:
+            self.node_token_ids = self.organ_disease_feat
+            if self.node_token_ids.dim() == 1:
+                self.node_token_ids = self.node_token_ids.unsqueeze(-1)
+            self.node_attention_mask = torch.ones_like(self.node_token_ids)
+
+        if self.node_token_ids.dim() == 3:
+            self.node_token_ids = self.node_token_ids.squeeze(0)
+            self.node_attention_mask = self.node_attention_mask.squeeze(0)
+
+        self.num_kg_nodes = self.node_token_ids.size(0)
+        self.organ_disease_feat_size = self.num_kg_nodes
 
         if os.path.exists(adj_path):
             self.adj_feat = torch.load(adj_path, map_location=used_device)
@@ -477,16 +492,15 @@ class M3AETransformerSS(pl.LightningModule):
         # == End  : Multi-Modal Fusion ==
 
         # == Begin: External Graph (2-Layer R-GCN + Question-guided Cross Attention) ==
-        organ_disease_tokens = self.organ_disease_feat
-        if organ_disease_tokens.dim() == 3:
-            organ_disease_tokens = organ_disease_tokens.squeeze(0)
+        node_token_ids = self.node_token_ids.to(x.device) # [N, seq_len]
+        node_attention_mask = self.node_attention_mask.to(x.device) # [N, seq_len]
 
-        # Mean-pool contextual embeddings for full multi-word medical concept phrases
-        phrase_embeds = self.language_encoder.embeddings(organ_disease_tokens.to(x.device)) # [num_nodes, seq_len, 768] or [num_nodes, 768]
-        if phrase_embeds.dim() == 3:
-            node_embeds = phrase_embeds.mean(dim=1) # [num_nodes, 768]
-        else:
-            node_embeds = phrase_embeds
+        # Contextual BERT word embeddings for tokens in concept phrases
+        token_embeds = self.language_encoder.embeddings.word_embeddings(node_token_ids) # [N, seq_len, 768]
+        mask = node_attention_mask.unsqueeze(-1).to(token_embeds.dtype) # [N, seq_len, 1]
+
+        # Masked mean-pooling across phrase tokens -> 1 embedding vector per node [N, 768]
+        node_embeds = (token_embeds * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1.0) # [N, 768]
 
         # Pass node_embeds [N, 768], edge_index, edge_type, and question text embeddings x into R-GCN
         RGCN_feat = self.RGCN_layer(

@@ -146,14 +146,21 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         node_concepts = list(dict.fromkeys(organs + sub_regions + diseases + findings))
         num_nodes = len(node_concepts)
 
-        # Convert full multi-word medical concepts to BERT Token ID sequences
+        # Convert full multi-word medical concepts to BERT Token ID sequences & attention masks
         try:
             tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
             encoded = tokenizer(node_concepts, padding=True, truncation=True, max_length=16, return_tensors="pt")
-            node_token_tensor = encoded.input_ids # [num_nodes, seq_len]
+            node_dict = {
+                "input_ids": encoded.input_ids, # [num_nodes, seq_len]
+                "attention_mask": encoded.attention_mask # [num_nodes, seq_len]
+            }
         except Exception:
             token_ids = [[abs(hash(c)) % 30522] for c in node_concepts]
-            node_token_tensor = torch.tensor(token_ids, dtype=torch.long)
+            masks = [[1] for _ in node_concepts]
+            node_dict = {
+                "input_ids": torch.tensor(token_ids, dtype=torch.long),
+                "attention_mask": torch.tensor(masks, dtype=torch.long)
+            }
 
         # --- 2. Build Authentic Medical Ontology Graph Triplets ---
         concept_to_idx = {c: i for i, c in enumerate(node_concepts)}
@@ -259,7 +266,7 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
             adj_matrix[src, dst] = 1.0
 
         torch.save(adj_matrix, adj_path)
-        torch.save(node_token_tensor, organ_path)
+        torch.save(node_dict, organ_path)
         torch.save(edge_index_tensor, edge_index_path)
         torch.save(edge_type_tensor, edge_type_path)
 
