@@ -274,7 +274,7 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         print(f"✅ Pre-generated Relational Edge Index: {edge_index_path} ({edge_index_tensor.size(1)} edges)")
         print(f"✅ Pre-generated Relational Edge Types: {edge_type_path} ({num_relations} directed relation types)")
     except Exception as e:
-        print(f"⚠️ Could not generate graph features: {e}")
+        raise RuntimeError(f"❌ Could not generate graph features: {e}") from e
 
 if __name__ == "__main__":
     generate_external_graph_feats()
