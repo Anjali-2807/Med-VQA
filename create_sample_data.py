@@ -215,17 +215,6 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         for o1, o2 in adjacency_triplets:
             add_rel(o1, o2, 6, 6)
 
-        # Add default structured connections for any remaining node indices to maintain complete graph density
-        for i in range(num_nodes):
-            concept = node_concepts[i]
-            if i < 50:
-                add_rel(concept, "chest" if i % 2 == 0 else "abdomen", 0, 1)
-            elif i < 150:
-                add_rel(concept, node_concepts[i % 50], 0, 1)
-            elif i < 350:
-                add_rel(concept, node_concepts[i % 50], 2, 3)
-                add_rel(concept, node_concepts[350 + (i % 227)], 4, 5)
-
         edge_index_tensor = torch.tensor(edges, dtype=torch.long).t().contiguous()
         edge_type_tensor = torch.tensor(edge_types, dtype=torch.long)
 

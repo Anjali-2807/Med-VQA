@@ -30,7 +30,7 @@ Standard Med-VQA models struggle with domain-specific reasoning and fine-grained
             ▼                          ▼                          ▼
   ┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
   │ Vision Encoder   │       │ Text Encoder     │       │ Knowledge Graph  │
-  │ (ViT / BioMed)   │       │ (PubMedBERT)     │       │ (SLAKE / UMLS)   │
+  │ (ViT / BioMed)   │       │ (PubMedBERT)     │       │ (RadLex / SNOMED)│
   └─────────┬────────┘       └─────────┬────────┘       └─────────┬────────┘
             │                          │                          │
             └────────────────────┬─────┴──────────────────────────┘
