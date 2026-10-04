@@ -58,7 +58,7 @@ Standard Med-VQA models struggle with domain-specific reasoning and fine-grained
 ## 📊 Benchmark Datasets
 
 Evaluated across 3 standard Med-VQA benchmarks:
-* **VQA-RAD**: Radiological images across 3 organ systems (3,064 train / 451 test questions).
+* **VQA-RAD**: Radiological images across 3 organ systems (1,793 total training QA pairs divided into 1,613 train / 180 validation pairs, and 451 official test benchmark QA pairs from Hugging Face `flaviagiammarino/vqa-rad`).
 * **SLAKE**: Multi-modal English medical VQA dataset (450 train / 96 val / 96 test images).
 * **OVQA**: Large-scale orthopedic medical visual question-answering dataset.
 

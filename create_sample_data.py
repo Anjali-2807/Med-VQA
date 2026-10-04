@@ -127,46 +127,104 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
             
         node_token_tensor = torch.tensor([token_ids], dtype=torch.long) # [1, 577]
 
-        # --- 2. Build Directed Relational Edges ---
+        # --- 2. Build Authentic Medical Ontology Graph Triplets ---
+        # Concept to index map
+        concept_to_idx = {c: i for i, c in enumerate(node_concepts)}
+        
         edges = []
         edge_types = []
+
+        def add_rel(src_name, dst_name, forward_rel, reverse_rel):
+            if src_name in concept_to_idx and dst_name in concept_to_idx:
+                u = concept_to_idx[src_name]
+                v = concept_to_idx[dst_name]
+                edges.append((u, v))
+                edge_types.append(forward_rel)
+                if reverse_rel is not None:
+                    edges.append((v, u))
+                    edge_types.append(reverse_rel)
 
         # Self-loops (Relation 7)
         for i in range(num_nodes):
             edges.append((i, i))
             edge_types.append(7)
 
-        # Sub-region <-> Organ: is_part_of (0) and has_part (1)
-        for sub in range(50, 150):
-            parent_organ = (sub - 50) % 50
-            edges.append((sub, parent_organ))
-            edge_types.append(0)  # sub_region is_part_of organ
-            edges.append((parent_organ, sub))
-            edge_types.append(1)  # organ has_part sub_region
+        # Anatomical Part-of Relations (sub_region is_part_of organ [0], organ has_part sub_region [1])
+        anatomy_triplets = [
+            ("upper lobe", "lung"), ("lower lobe", "lung"), ("middle lobe", "lung"), ("apex", "lung"), ("base", "lung"), ("subpleural space", "lung"),
+            ("ventricle", "brain"), ("cerebellum", "brain"), ("brainstem", "brain"), ("frontal lobe", "brain"), ("parietal lobe", "brain"),
+            ("occipital lobe", "brain"), ("temporal lobe", "brain"), ("white matter", "brain"), ("grey matter", "brain"),
+            ("left atrium", "heart"), ("right atrium", "heart"), ("left ventricle", "heart"), ("right ventricle", "heart"),
+            ("ascending aorta", "aorta"), ("aortic arch", "aorta"), ("hepatic lobe", "liver"), ("renal cortex", "kidney"), ("renal medulla", "kidney"),
+            ("pancreatic head", "pancreas"), ("pancreatic tail", "pancreas"), ("splenic parenchyma", "spleen"),
+            ("lumbar spine", "spine"), ("cervical spine", "spine"), ("thoracic spine", "spine"), ("sacrum", "spine"),
+            ("femoral head", "hip"), ("acetabulum", "pelvis"), ("iliac crest", "pelvis"), ("pleural space", "pleura"), ("pericardial space", "heart")
+        ]
+        for sub, org in anatomy_triplets:
+            add_rel(sub, org, 0, 1)
 
-        # Disease <-> Organ: located_in (2) and contains (3)
-        for dis in range(150, 350):
-            target_organ = (dis - 150) % 50
-            edges.append((dis, target_organ))
-            edge_types.append(2)  # disease located_in organ
-            edges.append((target_organ, dis))
-            edge_types.append(3)  # organ contains disease
+        # Disease Located-in Relations (disease located_in organ [2], organ contains disease [3])
+        location_triplets = [
+            ("pneumonia", "lung"), ("pneumonia", "chest"), ("pneumonia", "upper lobe"), ("pneumonia", "lower lobe"),
+            ("cardiomegaly", "heart"), ("cardiomegaly", "chest"), ("cardiomegaly", "left ventricle"),
+            ("pleural effusion", "pleura"), ("pleural effusion", "pleural space"), ("pleural effusion", "costophrenic angle"), ("pleural effusion", "chest"),
+            ("pneumothorax", "lung"), ("pneumothorax", "pleural space"), ("pneumothorax", "chest"),
+            ("atelectasis", "lung"), ("atelectasis", "upper lobe"), ("atelectasis", "lower lobe"),
+            ("pulmonary edema", "lung"), ("pulmonary edema", "chest"), ("pulmonary edema", "hilar area"),
+            ("stroke", "brain"), ("stroke", "head"), ("brain infarct", "brain"), ("brain infarct", "cerebellum"), ("intracranial hemorrhage", "brain"),
+            ("intracranial hemorrhage", "ventricle"), ("hydrocephalus", "brain"), ("hydrocephalus", "ventricle"),
+            ("brain tumor", "brain"), ("glioblastoma", "brain"), ("meningioma", "brain"),
+            ("hepatic steatosis", "liver"), ("liver cirrhosis", "liver"), ("hepatocellular carcinoma", "liver"),
+            ("cholecystitis", "gallbladder"), ("cholelithiasis", "gallbladder"), ("splenomegaly", "spleen"),
+            ("pancreatitis", "pancreas"), ("renal cyst", "kidney"), ("nephrolithiasis", "kidney"), ("renal cell carcinoma", "kidney"),
+            ("appendicitis", "bowel"), ("bowel obstruction", "bowel"), ("diverticulitis", "colon"),
+            ("fracture", "spine"), ("fracture", "pelvis"), ("fracture", "hip"), ("fracture", "femur"), ("fracture", "shoulder"), ("fracture", "rib"),
+            ("osteoarthritis", "joint"), ("spondylolisthesis", "spine"), ("disc herniation", "spine"),
+            ("lymphadenopathy", "lymph node"), ("lymphadenopathy", "mediastinum"), ("aortic aneurysm", "aorta"), ("pulmonary embolism", "lung")
+        ]
+        for dis, loc in location_triplets:
+            add_rel(dis, loc, 2, 3)
 
-        # Disease <-> Finding: manifests_as (4) and indicated_by (5)
-        for dis in range(150, 350):
-            finding = 350 + ((dis - 150) % 227)
-            edges.append((dis, finding))
-            edge_types.append(4)  # disease manifests_as finding
-            edges.append((finding, dis))
-            edge_types.append(5)  # finding indicated_by disease
+        # Disease Manifestation Relations (disease manifests_as finding [4], finding indicated_by disease [5])
+        manifestation_triplets = [
+            ("pneumonia", "opacity"), ("pneumonia", "consolidation"), ("pneumonia", "ground glass opacity"), ("pneumonia", "air fluid level"),
+            ("cardiomegaly", "mass effect"), ("cardiomegaly", "vascular congestion"), ("cardiomegaly", "shadowing"),
+            ("pleural effusion", "fluid accumulation"), ("pleural effusion", "opacity"), ("pleural effusion", "shadowing"),
+            ("pneumothorax", "hyperintensity"), ("pneumothorax", "air fluid level"),
+            ("atelectasis", "opacity"), ("atelectasis", "sulcal effacement"),
+            ("pulmonary edema", "fluid accumulation"), ("pulmonary edema", "vascular congestion"), ("pulmonary edema", "ground glass opacity"),
+            ("stroke", "hypointensity"), ("stroke", "mass effect"), ("brain infarct", "hypointensity"),
+            ("intracranial hemorrhage", "hyperintensity"), ("intracranial hemorrhage", "midline shift"), ("intracranial hemorrhage", "mass effect"),
+            ("hydrocephalus", "midline shift"), ("brain tumor", "ring enhancement"), ("brain tumor", "mass effect"),
+            ("hepatic steatosis", "hypointensity"), ("liver cirrhosis", "ascites"), ("cholecystitis", "fluid accumulation"),
+            ("cholelithiasis", "calcification"), ("splenomegaly", "mass effect"), ("pancreatitis", "fluid accumulation"),
+            ("renal cyst", "fluid accumulation"), ("nephrolithiasis", "calcification"), ("appendicitis", "fluid accumulation"),
+            ("fracture", "cortical disruption"), ("fracture", "soft tissue swelling"), ("osteoarthritis", "osteophyte"),
+            ("osteoarthritis", "joint space narrowing"), ("lymphadenopathy", "lymph node enlargement"), ("aortic aneurysm", "calcification")
+        ]
+        for dis, find in manifestation_triplets:
+            add_rel(dis, find, 4, 5)
 
-        # Organ <-> Organ: adjacent_to (6)
-        for org in range(0, 49):
-            adj_org = (org + 1) % 50
-            edges.append((org, adj_org))
-            edge_types.append(6)
-            edges.append((adj_org, org))
-            edge_types.append(6)
+        # Organ Adjacency Relations (organ adjacent_to organ [6])
+        adjacency_triplets = [
+            ("lung", "heart"), ("lung", "pleura"), ("lung", "diaphragm"), ("lung", "chest"), ("lung", "mediastinum"),
+            ("brain", "skull"), ("brain", "head"), ("brain", "neck"),
+            ("liver", "gallbladder"), ("liver", "stomach"), ("liver", "diaphragm"), ("liver", "kidney"), ("liver", "pancreas"),
+            ("kidney", "adrenal"), ("kidney", "spleen"), ("spine", "pelvis"), ("spine", "vertebra"), ("heart", "aorta")
+        ]
+        for o1, o2 in adjacency_triplets:
+            add_rel(o1, o2, 6, 6)
+
+        # Add default structured connections for any remaining node indices to maintain complete graph density
+        for i in range(num_nodes):
+            concept = node_concepts[i]
+            if i < 50:
+                add_rel(concept, "chest" if i % 2 == 0 else "abdomen", 0, 1)
+            elif i < 150:
+                add_rel(concept, node_concepts[i % 50], 0, 1)
+            elif i < 350:
+                add_rel(concept, node_concepts[i % 50], 2, 3)
+                add_rel(concept, node_concepts[350 + (i % 227)], 4, 5)
 
         edge_index_tensor = torch.tensor(edges, dtype=torch.long).t().contiguous()
         edge_type_tensor = torch.tensor(edge_types, dtype=torch.long)

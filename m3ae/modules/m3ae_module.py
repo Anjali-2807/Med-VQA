@@ -157,10 +157,8 @@ class M3AETransformerSS(pl.LightningModule):
                 generate_external_graph_feats(os.path.dirname(adj_path))
                 self.edge_index = torch.load(edge_index_path, map_location=used_device)
                 self.edge_type = torch.load(edge_type_path, map_location=used_device)
-            except Exception:
-                num_nodes = 577
-                self.edge_index = torch.stack([torch.arange(num_nodes), torch.arange(num_nodes)]).to(used_device)
-                self.edge_type = torch.full((num_nodes,), 4, dtype=torch.long, device=used_device)
+            except Exception as e:
+                raise FileNotFoundError(f"❌ Failed to load or generate Knowledge Graph edge tensors at {edge_index_path}: {e}")
 
         # 2-Layer R-GCN + Question-guided Cross Attention
         self.GAT_layer = RGCNKGEModule(d_model=config["hidden_size"], num_relations=8, num_bases=4)
