@@ -21,7 +21,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 from m3ae.modules import objectives, m3ae_utils
 from m3ae.modules import prediction_heads
-from m3ae.modules.language_encoders.bert_model import BertCrossLayer, GAT_module
+from m3ae.modules.language_encoders.bert_model import BertCrossLayer
 from models.rgcn_kge_module import RGCNKGEModule
 from m3ae.modules.m3ae_utils import init_weights
 from m3ae.modules.vision_encoders import swin_transformer as swin
@@ -158,11 +158,10 @@ class M3AETransformerSS(pl.LightningModule):
                 self.edge_index = torch.load(edge_index_path, map_location=used_device)
                 self.edge_type = torch.load(edge_type_path, map_location=used_device)
             except Exception as e:
-                raise FileNotFoundError(f"❌ Failed to load or generate Knowledge Graph edge tensors at {edge_index_path}: {e}")
+                raise RuntimeError(f"❌ Failed to load or generate the medical knowledge graph: {e}") from e
 
-        # 2-Layer R-GCN + Question-guided Cross Attention
-        self.GAT_layer = RGCNKGEModule(d_model=config["hidden_size"], num_relations=8, num_bases=4)
-        self.RGCN_layer = self.GAT_layer # Clean alias for 2-Layer R-GCN module
+        # 2-Layer R-GCN + Question-guided Cross Attention Module
+        self.RGCN_layer = RGCNKGEModule(d_model=config["hidden_size"], num_relations=8, num_bases=4)
         self.organ_average = nn.Conv1d(self.organ_disease_feat_size, self.GAT_feat, 1)
         self.organ_average.apply(init_weights)
         # == End  : External Graph ==
@@ -482,7 +481,7 @@ class M3AETransformerSS(pl.LightningModule):
         node_embeds = self.language_encoder.embeddings.word_embeddings(organ_disease_tokens.to(x.device)) # [577, 768]
 
         # Pass node_embeds [577, 768], edge_index, edge_type, and question text embeddings x into R-GCN
-        RGCN_feat = self.GAT_layer(
+        RGCN_feat = self.RGCN_layer(
             node_embeds,
             self.edge_index.to(x.device),
             self.edge_type.to(x.device),
