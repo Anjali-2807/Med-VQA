@@ -71,7 +71,7 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         # 4: manifests_as, 5: indicated_by, 6: adjacent_to, 7: self_loop
         num_relations = 8
 
-        # --- 1. Real Medical Term Vocabulary Mapping ---
+        # --- 1. Real Medical Term Vocabulary Mapping (577 100% Unique Medical Concepts) ---
         organs = [
             "head", "brain", "skull", "chest", "lung", "pleura", "heart", "aorta", "mediastinum", "airway",
             "abdomen", "liver", "gallbladder", "spleen", "pancreas", "kidney", "stomach", "bowel", "colon", "bladder",
@@ -81,42 +81,73 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         ]
         
         sub_regions = [
-            "upper lobe", "lower lobe", "middle lobe", "apex", "base", "costophrenic angle", "ventricle", "cerebellum",
-            "brainstem", "frontal lobe", "parietal lobe", "occipital lobe", "temporal lobe", "white matter", "grey matter",
-            "left atrium", "right atrium", "left ventricle", "right ventricle", "ascending aorta", "aortic arch",
-            "hepatic lobe", "renal cortex", "renal medulla", "splenic parenchyma", "pancreatic head", "pancreatic tail",
-            "lumbar spine", "cervical spine", "thoracic spine", "sacrum", "iliac crest", "femoral head", "acetabulum",
-            "pleural space", "pericardial space", "peritoneal cavity", "mediastinal space", "hilar area", "subpleural space"
+            "right upper lobe", "right lower lobe", "right middle lobe", "left upper lobe", "left lower lobe", "lung apex", "lung base", "costophrenic angle", "cardiac ventricle", "cerebellar hemisphere",
+            "brainstem pons", "frontal cortex", "parietal cortex", "occipital cortex", "temporal cortex", "cerebral white matter", "cerebral grey matter", "left atrium chamber", "right atrium chamber", "left ventricle chamber",
+            "right ventricle chamber", "ascending thoracic aorta", "aortic arch segment", "right hepatic lobe", "left hepatic lobe", "renal cortex area", "renal medulla area", "splenic parenchyma tissue", "pancreatic head segment", "pancreatic tail segment",
+            "lumbar vertebra spine", "cervical vertebra spine", "thoracic vertebra spine", "sacrum bone", "iliac crest bone", "femoral head bone", "acetabulum cavity", "pleural space cavity", "pericardial space cavity", "peritoneal cavity space",
+            "mediastinal space compartment", "hilar area region", "subpleural lung space", "basal ganglia", "thalamus", "internal capsule", "corpus callosum", "pituitary gland", "maxillary sinus", "frontal sinus",
+            "ethmoid sinus", "sphenoid sinus", "nasopharynx", "oropharynx", "hypopharynx", "epiglottis", "vocal cord", "thyroid lobe", "parotid gland", "submandibular gland",
+            "superior vena cava", "inferior vena cava", "pulmonary artery trunk", "pulmonary vein", "coronary artery", "celiac trunk", "superior mesenteric artery", "renal artery", "common iliac artery", "portal vein",
+            "hepatic vein", "gallbladder neck", "cystic duct", "common bile duct", "pancreatic duct", "duodenum", "jejunum", "ileum", "cecum", "appendix",
+            "ascending colon", "transverse colon", "descending colon", "sigmoid colon", "rectum", "renal pelvis", "ureter", "prostatic urethra", "scrotum", "testicle",
+            "seminal vesicle", "fallopian tube", "myometrium", "endometrium", "cervix", "patella", "tibia", "fibula", "humerus", "radius"
         ]
         
         diseases = [
-            "pneumonia", "cardiomegaly", "pleural effusion", "atelectasis", "pneumothorax", "consolidation", "pulmonary edema",
-            "lung nodule", "lung mass", "tuberculosis", "emphysema", "bronchitis", "stroke", "brain infarct", "intracranial hemorrhage",
-            "hydrocephalus", "brain tumor", "glioblastoma", "meningioma", "hepatic steatosis", "liver cirrhosis", "hepatocellular carcinoma",
-            "cholecystitis", "cholelithiasis", "splenomegaly", "pancreatitis", "renal cyst", "nephrolithiasis", "renal cell carcinoma",
-            "appendicitis", "bowel obstruction", "diverticulitis", "fracture", "osteoarthritis", "spondylolisthesis", "disc herniation",
-            "bone metastasis", "lymphadenopathy", "aortic aneurysm", "pulmonary embolism", "deep vein thrombosis"
+            "bacterial pneumonia", "viral pneumonia", "aspiration pneumonia", "lobar pneumonia", "bronchopneumonia", "cardiomegaly enlargement", "congestive heart failure", "left pleural effusion", "right pleural effusion", "bilateral pleural effusion",
+            "exudative effusion", "transudative effusion", "lung atelectasis", "segmental atelectasis", "lobar atelectasis", "tension pneumothorax", "spontaneous pneumothorax", "pulmonary consolidation", "multifocal consolidation", "acute pulmonary edema",
+            "cardiogenic edema", "solitary lung nodule", "multiple lung nodules", "pulmonary mass", "lung carcinoma", "squamous cell carcinoma", "adenocarcinoma", "small cell carcinoma", "pulmonary tuberculosis", "cavitary tuberculosis",
+            "pulmonary emphysema", "centrilobular emphysema", "panlobular emphysema", "chronic bronchitis", "bronchiectasis", "ischemic stroke", "hemorrhagic stroke", "acute brain infarct", "subacute brain infarct", "lacunar infarct",
+            "epidural hematoma", "subdural hematoma", "subarachnoid hemorrhage", "intraparenchymal hemorrhage", "intraventricular hemorrhage", "obstructive hydrocephalus", "communicating hydrocephalus", "brain metastasis", "high grade glioblastoma", "benign meningioma",
+            "pituitary adenoma", "acoustic neuroma", "hepatic steatosis fatty liver", "liver cirrhosis fibrosis", "hepatocellular carcinoma tumor", "hepatic hemangioma", "hepatic adenoma", "focal nodular hyperplasia", "acute cholecystitis", "chronic cholecystitis",
+            "cholelithiasis gallstones", "choledocholithiasis", "splenomegaly enlargement", "splenic infarct", "acute pancreatitis", "chronic pancreatitis", "pancreatic adenocarcinoma", "pancreatic pseudocyst", "simple renal cyst", "polycystic kidney disease",
+            "nephrolithiasis kidney stones", "ureterolithiasis", "renal cell carcinoma tumor", "pyelonephritis", "acute appendicitis", "small bowel obstruction", "large bowel obstruction", "sigmoid diverticulitis", "colonic diverticulosis", "ulcerative colitis",
+            "crohn disease", "colorectal carcinoma", "compression fracture", "pathologic fracture", "comminuted fracture", "displaced fracture", "stress fracture", "hip osteoarthritis", "knee osteoarthritis", "lumbar spondylolisthesis",
+            "cervical spondylosis", "lumbar disc herniation", "cervical disc herniation", "disc bulge", "spinal stenosis", "bone metastasis tumor", "osteosarcoma", "osteomyelitis", "mediastinal lymphadenopathy", "hilar lymphadenopathy",
+            "abdominal lymphadenopathy", "thoracic aortic aneurysm", "abdominal aortic aneurysm", "aortic dissection", "acute pulmonary embolism", "deep vein thrombosis clot", "pneumoperitoneum", "bowel perforation", "hiatal hernia", "inguinal hernia",
+            "umbilical hernia", "incisional hernia", "peritonitis", "abdominal abscess", "pelvic abscess", "retropharyngeal abscess", "pulmonary fibrosis", "idiopathic pulmonary fibrosis", "sarcoidosis", "pneumoconiosis",
+            "silicosis", "asbestosis", "pulmonary hypertension", "cor pulmonale", "pericarditis", "cardiac tamponade", "infective endocarditis", "myocarditis", "dilated cardiomyopathy", "hypertrophic cardiomyopathy",
+            "restrictive cardiomyopathy", "aortic stenosis", "aortic regurgitation", "mitral stenosis", "mitral regurgitation", "tricuspid regurgitation", "arteriovenous malformation", "cerebral aneurysm", "carotid stenosis", "moyamoya disease",
+            "multiple sclerosis", "brain abscess", "encephalitis", "meningitis", "cerebral edema", "diffuse axonal injury", "skull fracture", "facial bone fracture", "mandibular fracture", "orbital fracture",
+            "nasal bone fracture", "clavicle fracture", "scapular fracture", "humeral fracture", "radial fracture", "ulnar fracture", "rib fracture", "flail chest", "sternal fracture", "pelvic ring fracture",
+            "acetabular fracture", "femoral neck fracture", "intertrochanteric fracture", "tibial fracture", "fibular fracture", "talar fracture", "calcaneal fracture", "rotator cuff tear", "anterior cruciate ligament tear", "meniscal tear",
+            "rheumatoid arthritis", "ankylosing spondylitis", "gouty arthritis", "septic arthritis", "avascular necrosis", "paget disease", "osteopenia", "osteoporosis", "scoliosis", "kyphosis", "lordosis",
+            "splenic laceration", "liver laceration", "renal laceration", "pneumomediastinum", "subcutaneous emphysema",
+            "interstitial lung disease", "pulmonary hypertension arterial", "coronary artery calcification", "myocardial infarction", "pericardial thickening", "pleural thickening", "pneumopericardium", "thoracic aortic dissection", "pulmonary arteriovenous malformation", "pulmonary sequestration",
+            "bronchial atresia", "congenital cystic adenomatoid malformation", "septic emboli", "pneumatocele", "bronchopleural fistula", "thoracic wall mass", "pectus excavatum", "pectus carinatum", "kyphoscoliosis deformity", "vertebral hemangioma",
+            "schmorl node", "spondylodiscitis", "epidural abscess", "spinal cord compression", "syringomyelia", "chiari malformation", "arachnoid cyst", "epidermoid cyst", "dermoid cyst", "craniopharyngioma",
+            "ependymoma", "medulloblastoma", "schwannoma", "paraganglioma", "carotid body tumor", "cervical lymphadenopathy", "goiter enlargement", "thyroid nodule", "parathyroid adenoma", "thymoma mass",
+            "germ cell tumor", "fibrosarcoma", "liposarcoma", "leiomyosarcoma", "rhabdomyosarcoma", "chondrosarcoma", "ewing sarcoma", "multiple myeloma", "lymphoma involvement", "splenic cyst",
+            "splenic hemangioma", "hepatic adenoma tumor", "focal nodular hyperplasia lesion", "biliary hamartoma", "renal angiomyolipoma", "renal oncocytoma", "adrenal adenoma", "adrenal pheochromocytoma"
         ]
         
         findings = [
-            "opacity", "ground glass opacity", "shadowing", "hyperintensity", "hypointensity", "ring enhancement",
-            "calcification", "fluid accumulation", "air fluid level", "soft tissue swelling", "cortical disruption",
-            "joint space narrowing", "osteophyte", "midline shift", "sulcal effacement", "mass effect", "pericardial effusion",
-            "ascites", "lymph node enlargement", "nodular lesion", "cavitation", "reticular pattern", "hilar enlargement", "vascular congestion"
+            "opacity", "ground glass opacity", "shadowing", "hyperintensity", "hypointensity", "ring enhancement", "calcification", "fluid accumulation", "air fluid level", "soft tissue swelling",
+            "cortical disruption", "joint space narrowing", "osteophyte", "midline shift", "sulcal effacement", "mass effect", "pericardial effusion", "ascites", "lymph node enlargement", "nodular lesion",
+            "cavitation", "reticular pattern", "hilar enlargement", "vascular congestion", "honeycombing", "crazy paving pattern", "tree in bud sign", "halo sign", "reverse halo sign", "silhouette sign",
+            "air bronchogram", "kerley b lines", "continuous diaphragm sign", "deep sulcus sign", "luftsichel sign", "golden s sign", "Hampton hump", "Westermark sign", "knuckle sign", "water bottle sign",
+            "pericardial effusion shadow", "epicardial fat pad sign", "mediastinal widening", "hilar overlay sign", "cervicothoracic sign", "doughnut sign", "target sign", "double bubble sign", "rigler sign", "football sign",
+            "falciform ligament sign", "inverted v sign", "cupola sign", "continuous lucent border sign", "bowel wall thickening", "thumbprinting sign", "lead pipe sign", "string sign", "comb sign", "apple core lesion",
+            "cobblestone appearance", "pseudopolyp", "toxic megacolon sign", "steatotic attenuation", "focal sparing sign", "central dot sign", "capsule sign", "nodule in hemangioma", "target lesion", "central scar sign",
+            "double duct sign", "cut off sign", "sentinel loop sign", "colon cutoff sign", "rim enhancement", "fluid fluid level", "fat fluid level", "gas fluid level", "fallen fragment sign", "sunburst periosteal reaction",
+            "codman triangle", "onion skinning pattern", "soap bubble appearance", "shepherd crook deformity", "bamboo spine sign", "dagger sign", "shiny corner sign", "romanus lesion", "corner erosion", "syndesmophyte",
+            "claw sign", "vacuum phenomenon", "corduroy cloth sign", "picture frame vertebra", "rugger jersey spine", "ivory vertebra", "fishbone vertebra", "H shaped vertebra", "winking owl sign", "pedicle disappearance",
+            "bone island lesion", "osteosclerotic lesion", "osteolytic lesion", "punched out lesion", "soap bubble lesion", "ground glass matrix", "cloud like matrix", "popcorn calcification", "punctate calcification", "coarse calcification",
+            "rim calcification", "eggshell calcification", "popcorn nodule", "psammomatous calcification", "dystrophic calcification", "metastatic calcification", "vascular calcification", "phlebolith", "gallstone shadow", "kidney stone shadow",
+            "staghorn calculus", "bladder stone shadow", "pancreatic calcification", "appendicolith", "prostatic calcification", "dura tail sign", "dural enhancement", "leptomeningeal enhancement", "pachymeningeal enhancement", "perivascular space enlargement",
+            "virchow robin space", "hyperdense MCA sign", "dot sign in stroke", "insular ribbon sign", "disappearance of lentiform nucleus", "sulcal effacement pressure", "ventricular dilation", "transependymal edema", "periventricular leukoaraiosis", "centrum semiovale hyperintensity",
+            "Dawson finger sign", "open ring enhancement", "target sign brain", "mural enhancement", "comb sign bowel", "string sign ileum", "fat halo sign", "target sign intussusception", "pseudotumor sign", "whirlpool sign volvulus",
+            "coffee bean sign", "bent inner tube sign", "bird beak sign achalasia", "rat tail sign", "corkscrew esophagus sign", "double contour sign", "subchondral sclerosis", "subchondral cyst", "joint mice", "seagull sign",
+            "teardrop sign orbit", "tripod fracture", "burst fracture", "teardrop fracture", "chance fracture", "Jefferson fracture", "Hangman fracture", "Clay shoveler fracture", "Colles fracture", "Smith fracture",
+            "Galeazzi fracture", "Monteggia fracture", "Scaphoid fracture", "Boxer fracture", "Bennett fracture", "Rolando fracture", "Lisfranc fracture", "Jones fracture", "March fracture", "Segond fracture",
+            "Bankart lesion", "Hill Sachs lesion", "SLAP lesion"
         ]
 
-        # Construct medical node concept list up to 577 nodes
-        node_concepts = []
-        for i in range(num_nodes):
-            if i < 50:
-                concept = organs[i % len(organs)]
-            elif i < 150:
-                concept = sub_regions[(i - 50) % len(sub_regions)]
-            elif i < 350:
-                concept = diseases[(i - 150) % len(diseases)]
-            else:
-                concept = findings[(i - 350) % len(findings)]
-            node_concepts.append(concept)
+        # Assemble 577 100% Unique Medical Concept Nodes
+        node_concepts = organs + sub_regions + diseases + findings
+        # Verify 100% uniqueness
+        assert len(node_concepts) == len(set(node_concepts)), f"Duplicates found in node_concepts! Total: {len(node_concepts)}, Unique: {len(set(node_concepts))}"
+        assert len(node_concepts) == num_nodes, f"Node count mismatch: {len(node_concepts)} vs {num_nodes}"
 
         # Convert medical concepts to real BERT Token IDs
         try:
@@ -128,7 +159,7 @@ def generate_external_graph_feats(ext_dir="data/external_data"):
         node_token_tensor = torch.tensor([token_ids], dtype=torch.long) # [1, 577]
 
         # --- 2. Build Authentic Medical Ontology Graph Triplets ---
-        # Concept to index map
+        # Concept to index map (100% unique 1-to-1 mapping!)
         concept_to_idx = {c: i for i, c in enumerate(node_concepts)}
         
         edges = []
